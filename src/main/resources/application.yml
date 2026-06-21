@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: openrun
+
+  jpa:
+    open-in-view: false
