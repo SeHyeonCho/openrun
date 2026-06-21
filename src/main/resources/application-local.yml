@@ -1,6 +1,6 @@
 spring:
   config:
-    import: "optional:file:.env[.properties]"
+    import: "file:.env[.properties]"
 
 
   datasource:

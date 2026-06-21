@@ -20,12 +20,17 @@
 ## 🚀 로컬 실행
 
 ```bash
-# 1. 인프라(MySQL · Redis) 띄우기
+# 1. 환경 변수 파일 준비 (필수)
+cp .env.example .env
+# 필요하면 .env 안의 값(비밀번호·포트)을 수정
+
+# 2. 인프라(MySQL · Redis) 띄우기
 docker compose up -d
 
-# 2. IDE에서 애플리케이션 실행
+# 3. IDE에서 애플리케이션 실행
 ```
-
+- **`.env`는 필수입니다.** 없으면 앱이 시작 단계에서 실패합니다.
+- **실행 프로필 지정**: IDE 실행 구성의 **Active profiles**에 `local`을 지정해야 합니다. (또는 VM 옵션 `-Dspring.profiles.active=local`)
 - DB·Redis는 Docker로 띄우고, 애플리케이션은 IDE에서 직접 실행합니다.
 - 종료: `docker compose down`
 
