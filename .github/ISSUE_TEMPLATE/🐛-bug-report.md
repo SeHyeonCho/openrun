@@ -1,7 +1,7 @@
 ---
 name: "\U0001F41B Bug Report"
 about: 의도와 다르게 동작하는 문제를 보고합니다.
-title: "[Bug] 문제 요약"
+title: "fix: 문제 요약"
 labels: "\U0001F41B Bug"
 assignees: ''
 
