@@ -1,7 +1,7 @@
 ---
 name: "✨ Feature Request"
 about: 새로운 기능을 제안하고 작업을 정의합니다.
-title: "[Feat] 기능 이름"
+title: "feat: 기능 요약"
 labels: "✨ Feat"
 assignees: ''
 
@@ -20,6 +20,6 @@ assignees: ''
 - [ ] PR & CI 통과
 
 ## 🗂 로드맵 단계
-<!-- 우측 Milestone에서 P0 ~ P6 중 하나를 지정하세요 -->
+<!-- 해당하는 단계를 적어 주세요 (예: P0 · 🎟️ 기본 예약 플로우). 권한이 있으면 우측 Milestone에도 지정하세요 -->
 
 ## 📎 참고 자료
