@@ -1,0 +1,20 @@
+#!/bin/sh
+# GitHub Flow: main에 직접 커밋하지 않고, 이슈 브랜치에서만 커밋한다.
+# 활성화: git config core.hooksPath .githooks
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+
+if [ "$branch" = "main" ]; then
+    echo "[pre-commit] main 브랜치에 직접 커밋할 수 없습니다. 이슈 브랜치를 만들어 작업하세요." >&2
+    exit 1
+fi
+
+if ! printf '%s\n' "$branch" | grep -Eq '^(feat|fix|refactor|test|docs|chore)/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'; then
+    cat >&2 <<EOF
+[pre-commit] 브랜치 이름이 컨벤션과 다릅니다: "$branch"
+
+  형식: <type>/<이슈번호>-<영문-kebab-요약>
+  예시: feat/12-seat-hold-api
+EOF
+    exit 1
+fi

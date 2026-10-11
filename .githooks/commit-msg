@@ -1,0 +1,24 @@
+#!/bin/sh
+# 커밋 메시지 첫 줄이 '<type>: <한국어 요약>' 형식인지 검사한다.
+# 활성화: git config core.hooksPath .githooks
+
+first_line=$(grep -v '^#' "$1" | sed '/^[[:space:]]*$/d' | head -n 1)
+
+# merge, revert, fixup, squash 커밋은 검사하지 않는다
+case "$first_line" in
+    Merge*|Revert*|fixup!*|squash!*|amend!*) exit 0 ;;
+esac
+
+if printf '%s\n' "$first_line" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^ ].*[^.[:space:]]$'; then
+    exit 0
+fi
+
+cat >&2 <<EOF
+[commit-msg] 커밋 메시지 형식이 맞지 않습니다: "$first_line"
+
+  형식: <type>: <한국어 요약>
+  type: feat | fix | refactor | test | docs | chore
+  규칙: 콜론 뒤 공백 한 칸, 명사형으로 끝내고 마침표를 찍지 않음
+  예시: feat: 좌석 선점 API 구현
+EOF
+exit 1
