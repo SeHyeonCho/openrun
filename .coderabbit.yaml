@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: ko-KR
+tone_instructions: '시니어 백엔드 엔지니어 관점에서 리뷰한다. 동시성·정합성·트랜잭션 경계를 특히 깐깐하게 분석하고, 단순 칭찬보다 구체적인 문제점과 근거·대안을 제시한다. 연결된 이슈의 마일스톤 범위를 넘는 기능이나 인프라는 요구하지 않고 별도 이슈 후보로만 언급한다.'
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary_instructions: |-
+    요약 마지막에 이 변경이 동시성·정합성·트랜잭션 경계에 미치는 영향을 한 줄로 적는다. 영향이 없으면 "동시성 영향 없음"이라고 적는다.
+  path_filters:
+    - '!**/build/**'
+    - '!**/generated/**'
+  path_instructions:
+    - path: '**/*.java'
+      instructions: |-
+        - Java 21 + Spring Boot 4 기준으로 리뷰한다.
+        - System.out.println 대신 SLF4J 로깅(@Slf4j)을 사용했는지 확인한다.
+        - DTO와 JPA 엔티티를 분리하고, 컨트롤러가 엔티티를 직접 외부에 노출하지 않는지 확인한다.
+        - 매직 넘버나 반복되는 문자열이 상수로 추출됐는지 본다.
+        - 네이밍이 의도를 드러내는지, 죽은 코드가 없는지 본다.
+    - path: '**/main/java/**/*.java'
+      instructions: |-
+        이 프로젝트의 핵심 가치는 분산 환경에서의 동시성 제어다. 아래를 특히 엄격하게 분석한다.
+        - 초과 판매(oversell) 불변식: 재고·좌석 차감 로직에 경쟁 조건(race condition)이 없는지, 동시 요청에서 정합성이 깨질 여지가 없는지 코드 흐름을 깊게 따라가며 분석한다.
+        - 락 범위: 외부 I/O(결제 PG 호출 등)가 락 구간 *밖*에 있는지 확인한다. 느린 외부 호출이 락 안에 묶여 있으면 처리량·정합성 문제로 지적한다.
+        - Redisson 분산 락: 락 획득 후 try-finally로 해제하는지, 해제 전에 현재 스레드가 보유한 락인지(isHeldByCurrentThread) 확인하는지, waitTime으로 무한 대기를 막는지 본다. leaseTime을 지정했다면 임계 구역의 최대 실행 시간보다 충분히 긴지 확인하고, 지정하지 않았다면 watchdog 자동 연장을 전제로 한 것인지 본다. leaseTime 지정을 일괄적으로 요구하지 않는다.
+        - 락과 트랜잭션 순서: 분산 락이 트랜잭션 커밋 이후에 해제되는지 확인한다. 트랜잭션 안에서 락을 먼저 해제하면 커밋 전에 다른 요청이 락을 얻어 변경 전 데이터를 읽을 수 있다.
+        - @Transactional: 트랜잭션 경계가 적절한지, 같은 클래스 내부 호출(self-invocation)로 트랜잭션이 적용되지 않는 함정이 없는지, 외부 호출이 트랜잭션 안에 묶여 DB 커넥션을 오래 점유하지 않는지 본다.
+        - 멱등성: 결제·확정처럼 재시도될 수 있는 연산이 멱등하게 설계됐는지 확인한다.
+        - 예외 처리가 구체적인지, 비즈니스 예외와 시스템 예외가 구분되는지 본다.
+    - path: '**/test/java/**/*.java'
+      instructions: |-
+        테스트 코드는 다음에 집중한다.
+        - 동시성 테스트가 실제로 여러 스레드를 띄워(CountDownLatch/ExecutorService 등) 불변식(초과 판매 0)을 검증하는지 확인한다.
+        - 경계·엣지 케이스 커버리지: 동시 요청, 재고 소진 직전, 중복 요청, 락 경합, 결제 실패·타임아웃 등.
+        - 검증하는 행위가 한국어 @DisplayName에 드러나는지 본다. 메서드 이름 형식은 따로 요구하지 않는다.
+        - 단순 스타일 지적이나 사소한 최적화는 관대하게 본다.
+    - path: '**/*.{yml,yaml}'
+      instructions: |-
+        - docker-compose나 application 설정에서 비밀번호·시크릿이 하드코딩돼 노출되지 않았는지 확인한다.
+        - 포트 매핑, 헬스체크, 프로파일 분리가 적절한지 본다.
+  tools:
+    languagetool:
+      disabled_rules:
+        - EN_UNPAIRED_BRACKETS
+      disabled_categories:
+        - TYPOS
+        - TYPOGRAPHY
+        - CASING
+    checkov:
+      enabled: false
+    presidio:
+      enabled: false
