@@ -1,0 +1,22 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  conventional-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Squash 커밋이 될 PR 제목 형식 검사
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^ ].*[^.[:space:]]$'; then
+            echo "OK: $TITLE"
+          else
+            echo "::error::PR 제목은 '<type>: <한국어 요약>' 형식이어야 합니다 (type: feat|fix|refactor|test|docs|chore). 현재: $TITLE"
+            exit 1
+          fi
