@@ -33,5 +33,5 @@ allowed-tools: Bash(gh api *) Bash(gh label list *) Bash(gh issue list *)
    - `🗂 로드맵 단계`에는 고른 마일스톤 제목을 적는다
 5. 초안을 보여준다: 제목(`<type>: <한국어 요약>`), 라벨, 마일스톤, 본문. 승인 전에는 등록하지 않는다.
 6. 승인되면 본문을 임시 파일에 쓰고 등록한다.
-   `gh issue create --title "<제목>" --label "<라벨>" --milestone "<마일스톤 제목>" --body-file <임시 파일>`
+   `gh issue create --title "<제목>" --label "<라벨>" --milestone "<마일스톤 제목>" --assignee @me --body-file <임시 파일>`
 7. 이슈 번호와 URL을 알려주고, 바로 시작하려면 `/start-issue <번호>`를 쓰라고 안내한다.

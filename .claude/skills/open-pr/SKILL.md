@@ -36,8 +36,8 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
    - `💭 결정 · 고민 사항`: 선택한 방식, 이유, 버린 대안
    - `✅ 체크리스트`: 실제로 확인한 항목만 체크한다
    - HTML 주석은 지운다
-6. PR 제목은 이슈 제목을 그대로 쓰고, 라벨과 마일스톤은 이슈에서 복사한다.
+6. PR 제목은 이슈 제목을 그대로 쓰고, 라벨과 마일스톤은 이슈에서 복사한다. 담당자는 본인으로 지정한다.
 7. 초안(제목, 라벨, 마일스톤, 본문)을 보여주고 승인을 받은 뒤 진행한다.
    `git push -u origin <브랜치>`
-   `gh pr create --base main --title "<제목>" --body-file <임시 파일> --label "<라벨>" --milestone "<마일스톤 제목>"`
+   `gh pr create --base main --title "<제목>" --body-file <임시 파일> --label "<라벨>" --milestone "<마일스톤 제목>" --assignee @me`
 8. PR URL을 알려주고, CodeRabbit 리뷰가 달리면 `/review-fix`로 처리하라고 안내한다. 머지는 사용자가 GitHub에서 Squash Merge로 한다.
