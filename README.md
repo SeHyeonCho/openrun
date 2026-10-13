@@ -35,6 +35,7 @@ docker compose up -d
 - 실행 프로필 지정: IDE 실행 구성의 Active profiles에 `local`을 지정해야 합니다. (또는 VM 옵션 `-Dspring.profiles.active=local`)
 - DB·Redis는 Docker로 띄우고, 애플리케이션은 IDE에서 직접 실행합니다.
 - 종료: `docker compose down`
+- Git 훅 활성화: 클론한 뒤 `git config core.hooksPath .githooks`를 한 번 실행합니다. 커밋 메시지 형식과 브랜치 이름을 검사합니다.
 
 ## 🗺 로드맵
 

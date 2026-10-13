@@ -16,6 +16,7 @@
   - 현재 테스트는 실제 MySQL·Redis에 붙는다. `.env`가 있고 `docker compose up -d`가 된 상태여야 한다
   - Testcontainers로 전환하면 이 항목을 갱신한다
 - 로컬 실행: `./gradlew bootRun --args='--spring.profiles.active=local'`
+- 훅 활성화 (클론 후 한 번): `git config core.hooksPath .githooks`
 
 ## GitHub Flow
 
