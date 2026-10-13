@@ -11,7 +11,7 @@
 ## 명령어
 
 - 인프라 기동 / 종료: `docker compose up -d` / `docker compose down`
-- 빌드: `./gradlew build`
+- 빌드: `SPRING_PROFILES_ACTIVE=local ./gradlew build` (테스트를 포함하므로 아래 테스트와 같은 조건이 필요하다)
 - 테스트: `SPRING_PROFILES_ACTIVE=local ./gradlew test`
   - 현재 테스트는 실제 MySQL·Redis에 붙는다. `.env`가 있고 `docker compose up -d`가 된 상태여야 한다
   - Testcontainers로 전환하면 이 항목을 갱신한다
