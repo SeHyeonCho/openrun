@@ -26,7 +26,7 @@ allowed-tools: Bash(gh api *) Bash(gh label list *) Bash(gh issue list *)
 4. 템플릿을 읽고 본문을 채운다.
    - `feat`: `.github/ISSUE_TEMPLATE/` 아래의 feature-request 템플릿
    - `fix`: 같은 위치의 bug-report 템플릿
-   - `refactor`, `test`, `docs`, `chore`: feature-request 구조를 쓰되 `💡 기능 설명`을 `💡 작업 설명`으로 바꾼다
+   - `refactor`, `test`, `docs`, `chore`: feature-request 템플릿을 그대로 쓴다. 섹션 제목을 바꾸지 않는다
    - 템플릿의 front matter와 HTML 주석은 본문에 넣지 않는다
    - `📋 상세 내용 & 요구사항`은 완료 여부를 판단할 수 있는 체크리스트로 쓴다
    - 좌석 상태를 바꾸는 작업이면 완료 조건에 `동시성 테스트로 초과 판매가 일어나지 않음을 확인`을 넣는다
