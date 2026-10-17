@@ -14,9 +14,10 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^ ].*[^.[:space:]]$'; then
+          if printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^ ].*[^.[:space:]]$' \
+            && printf '%s\n' "$TITLE" | perl -CS -ne 'exit(/\p{Hangul}/ ? 0 : 1)'; then
             echo "OK: $TITLE"
           else
-            echo "::error::PR 제목은 '<type>: <한국어 요약>' 형식이어야 합니다 (type: feat|fix|refactor|test|docs|chore). 현재: $TITLE"
+            echo "::error::PR 제목은 '<type>: <한국어 요약>' 형식이어야 합니다 (type: feat|fix|refactor|test|docs|chore, 요약에 한글 포함). 현재: $TITLE"
             exit 1
           fi
