@@ -16,7 +16,7 @@ allowed-tools: Bash(gh api *) Bash(gh label list *) Bash(gh issue list *)
 
 ## 열린 이슈 (중복 확인용)
 
-!`gh issue list --state open --limit 30 || true`
+!`gh issue list --state open --limit 100 || true`
 
 ## 절차
 

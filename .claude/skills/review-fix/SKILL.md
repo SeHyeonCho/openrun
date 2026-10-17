@@ -34,7 +34,7 @@ allowed-tools: Bash(gh pr view *) Bash(gh api graphql *) Bash(git status *) Bash
    ```
    - `isResolved`가 false이고, 첫 댓글 작성자 login이 `coderabbitai`로 시작하는 스레드만 본다
    - CodeRabbit은 diff 범위 밖 지적과 사소한 지적(Nitpick)을 리뷰 본문에 접어서 넣는다. 최신 리뷰 본문도 확인한다:
-     `gh api 'repos/{owner}/{repo}/pulls/<번호>/reviews' --jq '[.[] | select(.user.login | startswith("coderabbitai"))] | last | .body'`
+     `gh api 'repos/{owner}/{repo}/pulls/<번호>/reviews?per_page=100' --jq '[.[] | select(.user.login | startswith("coderabbitai"))] | last | .body'`
 2. 항목마다 반영, 보류, 반박 중 하나로 판단한다.
    - 동시성·정합성 지적을 가장 먼저 본다. 재현 테스트로 지적이 맞는지 확인할 수 있으면 확인한 뒤 판단한다
    - CLAUDE.md 원칙과 충돌하는 제안은 반영하지 않는다. 예: 외부 I/O를 트랜잭션 안으로 넣는 제안, 동시성 테스트 없이 락 범위를 바꾸는 제안, 엔티티에 `@Setter`를 추가하는 제안
