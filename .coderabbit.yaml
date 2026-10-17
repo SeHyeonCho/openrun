@@ -6,6 +6,9 @@ reviews:
   request_changes_workflow: true
   high_level_summary_instructions: |-
     요약 마지막에 이 변경이 동시성·정합성·트랜잭션 경계에 미치는 영향을 한 줄로 적는다. 영향이 없으면 "동시성 영향 없음"이라고 적는다.
+  pre_merge_checks:
+    docstrings:
+      mode: 'off'
   path_filters:
     - '!**/build/**'
     - '!**/generated/**'
