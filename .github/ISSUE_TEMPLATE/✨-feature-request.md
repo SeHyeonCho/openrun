@@ -3,7 +3,7 @@ name: "✨ Feature Request"
 about: 새로운 기능을 제안하고 작업을 정의합니다.
 title: "feat: 기능 요약"
 labels: "✨ Feat"
-assignees: ''
+assignees: SeHyeonCho
 
 ---
 
