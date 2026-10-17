@@ -14,7 +14,7 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^ ].*[^.[:space:]]$' \
+          if printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^[:space:]].*[^.[:space:]]$' \
             && printf '%s\n' "$TITLE" | perl -CS -ne 'exit(/\p{Hangul}/ ? 0 : 1)'; then
             echo "OK: $TITLE"
           else

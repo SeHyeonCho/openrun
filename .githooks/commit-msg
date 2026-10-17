@@ -10,7 +10,7 @@ case "$first_line" in
 esac
 
 # 형식을 확인하고, 요약에 한글이 한 글자 이상 있는지 확인한다
-if printf '%s\n' "$first_line" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^ ].*[^.[:space:]]$' \
+if printf '%s\n' "$first_line" | grep -Eq '^(feat|fix|refactor|test|docs|chore): [^[:space:]].*[^.[:space:]]$' \
     && printf '%s\n' "$first_line" | perl -CS -ne 'exit(/\p{Hangul}/ ? 0 : 1)'; then
     exit 0
 fi
