@@ -16,11 +16,11 @@ allowed-tools: Bash(gh api *) Bash(gh label list *) Bash(gh issue list *)
 
 ## 열린 이슈 (중복 확인용)
 
-!`gh issue list --state open --limit 100 || true`
+!`gh issue list --state open --limit 100 || echo "이슈 조회 실패: gh auth status를 확인한다"`
 
 ## 절차
 
-1. 열린 이슈 중 같은 작업이 있으면 멈추고 알린다.
+1. 마일스톤이나 열린 이슈 조회가 실패했으면 멈추고 알린다. 열린 이슈 중 같은 작업이 있어도 멈추고 알린다.
 2. CLAUDE.md의 type 표에서 type 하나를 고른다. 두 가지 성격이 섞여 있으면 이슈를 나누자고 제안한다.
 3. 위 마일스톤 중 하나를 고른다. 어느 단계인지 모호하면 후보와 이유를 제시하고 묻는다.
 4. 템플릿을 읽고 본문을 채운다.
