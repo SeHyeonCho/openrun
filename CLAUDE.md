@@ -126,6 +126,7 @@ type은 아래 여섯 개만 쓴다. 이슈 제목, 브랜치, 커밋, PR 제목
 
 - 프로필은 `application.yml`(공통), `application-local.yml`, `application-prod.yml`로 나뉜다. 베이스 설정에 `spring.profiles.active`를 넣지 않는다
 - `.env`는 필수이며 커밋하지 않는다. 새 환경변수를 추가하면 `.env.example`에 키를 함께 추가한다
+- Claude Code의 `.env` 읽기 차단은 파일 도구와 `cat` 같은 주요 명령에만 적용되고 모든 접근을 막지는 못한다. `.env`에는 로컬 개발용 값만 둔다
 - 새 의존성을 추가할 때는 이유를 먼저 설명하고 확인을 받는다
 
 ## 작업 방식
