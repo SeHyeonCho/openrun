@@ -29,7 +29,7 @@
       "Bash(gh pr create *)"
     ],
     "deny": [
-      "Read(./.env)",
+      "Read(//**/.env)",
       "Bash(cat .env)",
       "Bash(git commit * --no-verify*)",
       "Bash(git commit --no-verify*)",
