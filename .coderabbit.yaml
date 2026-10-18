@@ -8,6 +8,15 @@ reviews:
   pre_merge_checks:
     docstrings:
       mode: 'off'
+    custom_checks:
+      - name: 초과 판매 동시성 테스트
+        mode: warning
+        instructions: |-
+          diff에 좌석 상태를 바꾸는 코드(AVAILABLE·HELD 같은 상태 전이, held_until 변경)가 있으면, 같은 PR에서 동시성 테스트가 추가되거나 수정됐는지 본다. 동시성 테스트는 여러 스레드를 동시에 출발시키고 성공 건수와 최종 좌석 상태를 함께 검증하는 테스트다. 그런 테스트가 있으면 통과, 없으면 실패다. 좌석 상태를 바꾸는 코드가 없으면 통과다.
+      - name: 외부 I/O의 락·트랜잭션 분리
+        mode: warning
+        instructions: |-
+          diff에서 외부 시스템 호출(결제 API, HTTP 클라이언트, 메시지 발행 등)이 @Transactional 메서드 안이나 락을 잡은 구간 안에서 실행되면 실패다. 그런 호출이 없거나 모두 트랜잭션·락 밖에 있으면 통과다.
   path_filters:
     - '!**/build/**'
     - '!**/generated/**'
