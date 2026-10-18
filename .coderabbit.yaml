@@ -4,11 +4,19 @@ tone_instructions: '시니어 백엔드 엔지니어 관점에서 리뷰한다. 
 reviews:
   profile: assertive
   request_changes_workflow: true
-  high_level_summary_instructions: |-
-    요약 마지막에 이 변경이 동시성·정합성·트랜잭션 경계에 미치는 영향을 한 줄로 적는다. 영향이 없으면 "동시성 영향 없음"이라고 적는다.
+  high_level_summary: false
   pre_merge_checks:
     docstrings:
       mode: 'off'
+    custom_checks:
+      - name: 초과 판매 동시성 테스트
+        mode: warning
+        instructions: |-
+          diff에 좌석 상태를 바꾸는 코드(상태 전이 또는 held_until 변경)가 있으면, 같은 PR에서 동시성 테스트가 추가되거나 수정됐는지 본다. 동시성 테스트는 ExecutorService와 CountDownLatch 등으로 N개 스레드를 동시에 출발시키고, 성공 건수가 좌석 수를 넘지 않는지와 최종 좌석 상태를 함께 검증하는 테스트다. 그런 테스트가 있으면 통과, 없으면 실패다. 좌석 상태를 바꾸는 코드가 없으면 통과다.
+      - name: 외부 I/O의 락·트랜잭션 분리
+        mode: warning
+        instructions: |-
+          diff에서 외부 시스템 호출(결제 API, HTTP 클라이언트, 메시지 발행 등)이 트랜잭션이나 락이 유지되는 동안 실행되면 실패다. 트랜잭션은 @Transactional 메서드, 클래스 단위 @Transactional이 적용되는 메서드, TransactionTemplate.execute 블록을 포함하고, 그 안에서 호출하는 다른 메서드도 같은 트랜잭션 안으로 본다. 락이 유지되는 동안은 Redisson RLock의 lock() 또는 성공한 tryLock() 이후부터 unlock() 전까지와 synchronized 블록을 포함한다. 그런 호출이 없거나 모두 트랜잭션·락 밖에 있으면 통과다.
   path_filters:
     - '!**/build/**'
     - '!**/generated/**'
