@@ -37,3 +37,7 @@ out/
 .vscode/
 
 .env
+
+### Claude Code (개인 설정) ###
+CLAUDE.local.md
+.claude/settings.local.json

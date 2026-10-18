@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew *)",
+      "Bash(docker compose *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git fetch *)",
+      "Bash(git pull --ff-only *)",
+      "Bash(git switch *)",
+      "Bash(git add *)",
+      "Bash(git commit -m *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh label list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh api repos/{owner}/{repo}/milestones*)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(gh issue create *)",
+      "Bash(gh pr create *)"
+    ],
+    "deny": [
+      "Read(//**/.env)",
+      "Bash(cat .env)",
+      "Bash(git commit * --no-verify*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit -n*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git push * main)",
+      "Bash(git push * main:*)",
+      "Bash(git reset --hard*)"
+    ]
+  }
+}
