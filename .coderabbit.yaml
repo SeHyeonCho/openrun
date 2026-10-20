@@ -48,6 +48,7 @@ reviews:
     - path: '**/*.{yml,yaml}'
       instructions: |-
         - docker-compose나 application 설정에서 비밀번호·시크릿이 하드코딩돼 노출되지 않았는지 확인한다.
+        - 인증을 지원하는 서비스(DB, 캐시, 메시지 브로커 등)가 비밀번호 없이 열려 있지 않은지, 포트가 모든 네트워크 주소로 공개되지 않았는지 확인한다.
         - 포트 매핑, 헬스체크, 프로파일 분리가 적절한지 본다.
   tools:
     languagetool:
