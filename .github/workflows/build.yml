@@ -38,6 +38,7 @@ jobs:
             echo "MYSQL_DATABASE=openrun_ci"
             echo "MYSQL_PORT=3306"
             echo "MYSQL_ROOT_PASSWORD=$(openssl rand -hex 16)"
+            echo "REDIS_PASSWORD=$(openssl rand -hex 16)"
             echo "REDIS_PORT=6379"
           } > .env
 
