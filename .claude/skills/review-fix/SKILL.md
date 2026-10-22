@@ -21,6 +21,7 @@ allowed-tools: Bash(gh pr view *) Bash(gh api graphql *) Bash(gh run list *) Bas
          pullRequest(number: $number) {
            reviewThreads(first: 100) {
              nodes {
+               id
                isResolved
                isOutdated
                path
@@ -50,3 +51,10 @@ allowed-tools: Bash(gh pr view *) Bash(gh api graphql *) Bash(gh run list *) Bas
 8. 반영하지 않은 주요 지적과 그 이유를 PR 본문의 `💭 결정 · 고민 사항`에 추가할지 묻는다.
 9. PR 본문의 `🧪 테스트 증명`에 최신 커밋의 `build` 실행 링크가 없고 그 실행이 끝났으면, 링크를 덧붙일지 묻는다:
    `gh run list --workflow build.yml --commit <최신 커밋> --json conclusion,url`
+
+## CodeRabbit이 예상과 다르게 동작할 때
+
+- 반박·보류 답글에 동의하고도 스레드를 해결하지 않으면, 동의한 답글을 확인한 뒤 해결 처리할지 묻는다. 승인되면 1번에서 가져온 스레드 `id`로 해결한다:
+  `gh api graphql -f query='mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' -f id=<스레드 id>`
+- `@coderabbitai review`는 새 커밋이 없으면 이미 리뷰한 커밋이라며 실행되지 않는다. 판정이 `CHANGES_REQUESTED`로 남아 있으면 미해결 스레드부터 확인한다. 스레드가 모두 해결되면 판정도 풀린다
+- 커밋 상태가 `Review rate limited`이면 리뷰 한도(시간당 1회)에 걸려 그 커밋을 건너뛴 것이다. 한도가 풀린 뒤 PR에 `@coderabbitai review`를 요청한다
