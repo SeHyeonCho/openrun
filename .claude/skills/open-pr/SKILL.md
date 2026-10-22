@@ -40,4 +40,4 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
 7. 초안(제목, 라벨, 마일스톤, 본문)을 보여주고 승인을 받은 뒤 진행한다.
    `git push -u origin <브랜치>`
    `gh pr create --base main --title "<제목>" --body-file <임시 파일> --label "<라벨>" --milestone "<마일스톤 제목>" --assignee @me`
-8. PR URL을 알려주고, CodeRabbit 리뷰가 달리면 `/review-fix`로 처리하라고 안내한다. 머지는 사용자가 GitHub에서 Squash Merge로 한다.
+8. PR URL을 알려주고, CI와 CodeRabbit 리뷰가 끝나면 `/review-fix`로 처리하라고 안내한다. 머지는 사용자가 요청하면 CLAUDE.md의 머지 절차대로 한다.
