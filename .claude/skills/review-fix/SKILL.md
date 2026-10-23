@@ -49,8 +49,8 @@ allowed-tools: Bash(gh pr view *) Bash(gh api graphql *) Bash(gh run list *) Bas
    `gh api -X POST 'repos/{owner}/{repo}/pulls/<번호>/comments/<databaseId>/replies' -f body='<이유>'`
    - 보류 항목은 `/new-issue`로 이슈를 만들자고 제안한다
 8. 반영하지 않은 주요 지적과 그 이유를 PR 본문의 `💭 결정 · 고민 사항`에 추가할지 묻는다.
-9. PR 본문의 `🧪 테스트 증명`에 최신 커밋의 `build` 실행 링크가 없고 그 실행이 끝났으면, 링크를 덧붙일지 묻는다:
-   `gh run list --workflow build.yml --commit <최신 커밋> --json conclusion,url`
+9. PR 본문의 `🧪 테스트 증명`에 PR 마지막 커밋의 `build` 성공 링크가 없으면, 링크를 덧붙일지 묻는다. 아래 명령이 아무것도 출력하지 않으면 성공한 실행이 아직 없는 것이다:
+   `gh run list --workflow build.yml --commit "$(gh pr view <번호> --json headRefOid --jq .headRefOid)" --status success --limit 1 --json url --jq '.[].url'`
 
 ## CodeRabbit이 예상과 다르게 동작할 때
 
