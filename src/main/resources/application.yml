@@ -2,6 +2,10 @@ spring:
   application:
     name: openrun
 
+  mvc:
+    problemdetails:
+      enabled: true
+
   jpa:
     open-in-view: false
     properties:
