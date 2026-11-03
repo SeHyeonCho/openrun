@@ -11,10 +11,10 @@
 ## 명령어
 
 - 인프라 기동 / 종료: `docker compose up -d` / `docker compose down`
-- 빌드: `SPRING_PROFILES_ACTIVE=local ./gradlew build` (테스트를 포함하므로 아래 테스트와 같은 조건이 필요하다)
-- 테스트: `SPRING_PROFILES_ACTIVE=local ./gradlew test`
-  - 현재 테스트는 실제 MySQL·Redis에 붙는다. `.env`가 있고 `docker compose up -d`가 된 상태여야 한다
-  - Testcontainers로 전환하면 이 항목을 갱신한다
+- 빌드: `./gradlew build` (테스트를 포함하므로 아래 테스트와 같은 조건이 필요하다)
+- 테스트: `./gradlew test`
+  - 테스트는 Testcontainers로 띄운 MySQL·Redis에서 실행된다. Docker가 켜져 있어야 하고, `.env`와 Compose 컨테이너는 필요 없다
+  - 여러 스레드가 커밋하는 테스트는 끝날 때 `DatabaseCleaner`로 데이터를 지운다
 - 로컬 실행: `./gradlew bootRun --args='--spring.profiles.active=local'`
 - 훅 활성화 (클론 후 한 번): `git config core.hooksPath .githooks`
 
