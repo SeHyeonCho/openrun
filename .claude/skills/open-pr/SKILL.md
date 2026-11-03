@@ -24,8 +24,8 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
 1. 브랜치 이름이 `<type>/<번호>-<요약>` 형식인지 확인하고, 번호로 이슈를 조회한다: `gh issue view <번호>`. 형식이 다르면 멈춘다.
 2. 커밋되지 않은 변경이 있으면 멈추고 알린다.
 3. 커밋 목록을 점검한다. 커밋 형식이 틀렸거나 이슈와 무관한 변경이 섞여 있으면 PR 전에 알린다. 히스토리 재작성은 승인을 받은 뒤에만 한다.
-4. 빌드와 테스트를 이전 결과를 재사용하지 않고 실행한다: `SPRING_PROFILES_ACTIVE=local ./gradlew build --rerun-tasks`
-   - MySQL·Redis가 꺼져 있어 실패하면 `docker compose up -d`를 먼저 하자고 제안한다
+4. 빌드와 테스트를 이전 결과를 재사용하지 않고 실행한다: `./gradlew build --rerun-tasks`
+   - Docker가 꺼져 있어 Testcontainers가 실패하면 Docker를 먼저 켜자고 제안한다
    - 그 외 이유로 실패하면 PR을 열지 않고 원인을 보고한다
 5. `.github/pull_request_template.md`를 읽고 본문을 채운다.
    - `📌 관련 이슈`: `Closes #<번호>`

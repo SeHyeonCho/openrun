@@ -43,7 +43,7 @@ allowed-tools: Bash(gh pr view *) Bash(gh api graphql *) Bash(gh run list *) Bas
    - outdated 스레드는 현재 코드에도 해당하는지 확인한다
 3. 판단 결과를 표로 보여준다: 위치 | 지적 요약 | 판단 | 이유. 승인 전에는 코드를 고치지 않는다.
 4. 승인된 항목을 반영한다. 커밋은 변경 성격별로 나누고 CLAUDE.md 커밋 규칙을 따른다 (예: `fix: 홀드 만료 시각 비교 경계값 수정`). "리뷰 반영"처럼 무엇을 바꿨는지 드러나지 않는 메시지는 쓰지 않는다.
-5. `SPRING_PROFILES_ACTIVE=local ./gradlew build --rerun-tasks`로 확인한다. 실패하면 push하지 않고 보고한다.
+5. `./gradlew build --rerun-tasks`로 확인한다. 실패하면 push하지 않고 보고한다.
 6. 승인을 받고 push한다. CodeRabbit이 새 커밋을 다시 리뷰한다.
 7. 반박하거나 보류한 스레드에 이유를 답글로 남길지 묻는다. 승인되면 답글을 단다:
    `gh api -X POST 'repos/{owner}/{repo}/pulls/<번호>/comments/<databaseId>/replies' -f body='<이유>'`
