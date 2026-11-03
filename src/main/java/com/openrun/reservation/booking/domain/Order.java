@@ -47,4 +47,8 @@ public class Order extends BaseEntity {
         this.status = status;
         this.heldUntil = heldUntil;
     }
+
+    public static Order hold(Showtime showtime, Long userId, Instant now) {
+        return new Order(showtime, userId, OrderStatus.HELD, showtime.holdDeadlineFrom(now));
+    }
 }
