@@ -73,6 +73,14 @@ class OrderHoldConcurrencyTest {
         assertThat(heldSeatCount(showtime)).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo(1);
+        assertThat(count("""
+                SELECT COUNT(*) FROM seat s
+                JOIN orders o ON o.id = s.current_order_id
+                WHERE s.id = %d
+                  AND s.held_until IS NOT NULL
+                  AND s.held_until = o.held_until
+                  AND s.held_until > NOW(6)
+                """.formatted(seat.getId()))).isEqualTo(1);
     }
 
     @Test
