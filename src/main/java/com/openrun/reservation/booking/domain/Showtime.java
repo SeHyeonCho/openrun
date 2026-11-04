@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import java.time.Duration;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -60,5 +61,13 @@ public class Showtime extends BaseEntity {
             throw new IllegalArgumentException("1인 최대 좌석 수는 0보다 커야 한다");
         }
         return new Showtime(performance, startsAt, salesOpenAt, holdMinutes, maxSeatsPerUser);
+    }
+
+    public boolean isSalesOpenAt(Instant now) {
+        return !now.isBefore(salesOpenAt);
+    }
+
+    public Instant holdDeadlineFrom(Instant now) {
+        return now.plus(Duration.ofMinutes(holdMinutes));
     }
 }
