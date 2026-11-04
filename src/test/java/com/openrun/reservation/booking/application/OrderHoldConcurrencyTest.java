@@ -102,6 +102,32 @@ class OrderHoldConcurrencyTest {
     }
 
     @Test
+    @DisplayName("선점 기한이 지난 좌석에 여러 사용자가 동시에 다시 선점하면 정확히 한 명만 성공한다")
+    void onlyOneOrderHoldsExpiredSeatAgain() throws Exception {
+        Showtime showtime = createShowtime(4);
+        Seat seat = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
+        Long expiredOrderId = orderService.hold(new CreateOrderRequest(showtime.getId(), 0L, List.of(seat.getId())))
+                .orderId();
+        jdbcTemplate.update("UPDATE orders SET held_until = NOW(6) - INTERVAL 1 MINUTE WHERE id = ?", expiredOrderId);
+        jdbcTemplate.update("UPDATE seat SET held_until = NOW(6) - INTERVAL 1 MINUTE WHERE id = ?", seat.getId());
+
+        List<Outcome> outcomes = runConcurrently(THREADS,
+                i -> new CreateOrderRequest(showtime.getId(), (long) i + 1, List.of(seat.getId())));
+
+        assertThat(outcomes).filteredOn(Outcome::succeeded).hasSize(1);
+        assertThat(outcomes).filteredOn(outcome -> !outcome.succeeded())
+                .allMatch(outcome -> outcome.rejection() == SeatHoldRejection.SEAT_NOT_AVAILABLE);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, expiredOrderId))
+                .isEqualTo("EXPIRED");
+        assertThat(count("SELECT COUNT(*) FROM orders WHERE status = 'HELD'")).isEqualTo(1);
+        assertThat(count("""
+                SELECT COUNT(*) FROM seat s
+                JOIN orders o ON o.id = s.current_order_id
+                WHERE s.id = %d AND o.status = 'HELD' AND s.held_until = o.held_until AND s.held_until > NOW(6)
+                """.formatted(seat.getId()))).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("같은 사용자가 동시에 선점해도 1인 최대 좌석 수를 넘지 않는다")
     void sameUserCannotExceedSeatLimitConcurrently() throws Exception {
         int maxSeatsPerUser = 4;

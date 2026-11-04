@@ -58,6 +58,7 @@ public class OrderService {
         List<Seat> seats = seatRepository.findAllByIdForUpdate(seatIds);
         rejectSeatsOutsideShowtime(showtime, seatIds, seats);
         rejectUnavailableSeats(seats, now);
+        expirePreviousOrders(seats, now);
 
         Order order = orderRepository.save(Order.hold(showtime, request.userId(), now));
         seats.forEach(seat -> seat.hold(order, now));
@@ -85,5 +86,13 @@ public class OrderService {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_NOT_AVAILABLE,
                     "선점할 수 없는 좌석이 있습니다.", unavailable);
         }
+    }
+
+    private void expirePreviousOrders(List<Seat> seats, Instant now) {
+        seats.stream()
+                .filter(seat -> seat.isHoldExpiredAt(now))
+                .map(Seat::getCurrentOrder)
+                .distinct()
+                .forEach(Order::expire);
     }
 }
