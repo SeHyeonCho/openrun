@@ -97,6 +97,25 @@ class OrderHoldExpiryTest {
         assertThat(orderStatus(second.orderId())).isEqualTo("HELD");
     }
 
+    @Test
+    @DisplayName("확정한 좌석은 선점 기한이 지나도 1인 최대 좌석 수에 포함한다")
+    void confirmedSeatsCountTowardLimitAfterHeldUntil() {
+        Showtime showtime = createShowtime();
+        Long confirmedSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
+        Long otherSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A2")).getId();
+        clock.setInstant(OPENED_AT);
+        OrderResponse confirmed = orderService.hold(
+                new CreateOrderRequest(showtime.getId(), 1L, List.of(confirmedSeatId)));
+        jdbcTemplate.update("UPDATE orders SET status = 'CONFIRMED' WHERE id = ?", confirmed.orderId());
+        jdbcTemplate.update("UPDATE seat SET status = 'SOLD', held_until = NULL WHERE id = ?", confirmedSeatId);
+
+        clock.setInstant(OPENED_AT.plus(Duration.ofDays(1)));
+
+        assertThatThrownBy(() -> orderService.hold(new CreateOrderRequest(showtime.getId(), 1L, List.of(otherSeatId))))
+                .isInstanceOfSatisfying(SeatHoldRejectedException.class,
+                        e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_LIMIT_EXCEEDED));
+    }
+
     private Showtime createShowtime() {
         Performance performance = performanceRepository.save(Performance.create("만료 테스트 공연"));
         return showtimeRepository.save(Showtime.create(performance, OPENED_AT.plus(Duration.ofDays(7)),

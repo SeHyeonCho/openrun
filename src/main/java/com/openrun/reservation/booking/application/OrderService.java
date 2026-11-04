@@ -4,7 +4,6 @@ import com.openrun.reservation.booking.domain.Order;
 import com.openrun.reservation.booking.domain.OrderRepository;
 import com.openrun.reservation.booking.domain.OrderSeat;
 import com.openrun.reservation.booking.domain.OrderSeatRepository;
-import com.openrun.reservation.booking.domain.OrderStatus;
 import com.openrun.reservation.booking.domain.Seat;
 import com.openrun.reservation.booking.domain.SeatRepository;
 import com.openrun.reservation.booking.domain.Showtime;
@@ -49,8 +48,8 @@ public class OrderService {
         }
 
         showtimeBuyerLock.acquire(showtime.getId(), request.userId());
-        long heldSeats = orderSeatRepository.countHeldSeats(showtime.getId(), request.userId(), OrderStatus.HELD, now);
-        if (heldSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
+        long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), request.userId(), now);
+        if (activeSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_LIMIT_EXCEEDED,
                     "1인 최대 좌석 수(" + showtime.getMaxSeatsPerUser() + "석)를 넘습니다.");
         }

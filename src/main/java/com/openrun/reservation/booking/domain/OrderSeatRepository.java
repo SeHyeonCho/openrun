@@ -11,9 +11,10 @@ public interface OrderSeatRepository extends JpaRepository<OrderSeat, Long> {
             select count(os) from OrderSeat os
             where os.order.showtime.id = :showtimeId
               and os.order.userId = :userId
-              and os.order.status = :status
-              and os.order.heldUntil > :now
+              and (os.order.status = com.openrun.reservation.booking.domain.OrderStatus.CONFIRMED
+                or (os.order.status = com.openrun.reservation.booking.domain.OrderStatus.HELD
+                  and os.order.heldUntil > :now))
             """)
-    long countHeldSeats(@Param("showtimeId") Long showtimeId, @Param("userId") Long userId,
-            @Param("status") OrderStatus status, @Param("now") Instant now);
+    long countActiveSeats(@Param("showtimeId") Long showtimeId, @Param("userId") Long userId,
+            @Param("now") Instant now);
 }
