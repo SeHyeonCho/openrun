@@ -57,4 +57,22 @@ public class Order extends BaseEntity {
             this.status = OrderStatus.EXPIRED;
         }
     }
+
+    public boolean isConfirmed() {
+        return status == OrderStatus.CONFIRMED;
+    }
+
+    public boolean isConfirmableAt(Instant now) {
+        return status == OrderStatus.HELD && now.isBefore(heldUntil);
+    }
+
+    public void confirm(Instant now) {
+        if (isConfirmed()) {
+            return;
+        }
+        if (!isConfirmableAt(now)) {
+            throw new IllegalStateException("확정할 수 없는 주문이다: " + id);
+        }
+        this.status = OrderStatus.CONFIRMED;
+    }
 }

@@ -91,6 +91,24 @@ class SeatQueryApiTest {
     }
 
     @Test
+    @DisplayName("확정된 좌석은 선점 기한이 지나도 판매 완료로 보여 준다")
+    void showsConfirmedSeatAsSold() throws Exception {
+        Showtime showtime = createShowtime();
+        Seat seat = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
+        Instant longAgo = Instant.now().minus(Duration.ofHours(1));
+        Order order = orderRepository.save(Order.hold(showtime, 1L, longAgo));
+        seat.hold(order, longAgo);
+        order.confirm(longAgo);
+        seat.confirm(order);
+        seatRepository.flush();
+
+        mockMvc.perform(get("/api/showtimes/{showtimeId}/seats", showtime.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seats[0].label").value("A1"))
+                .andExpect(jsonPath("$.seats[0].status").value("SOLD"));
+    }
+
+    @Test
     @DisplayName("없는 회차의 좌석을 조회하면 404를 반환한다")
     void returnsNotFoundForUnknownShowtime() throws Exception {
         mockMvc.perform(get("/api/showtimes/{showtimeId}/seats", Long.MAX_VALUE))
