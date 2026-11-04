@@ -43,6 +43,7 @@ class OrderConfirmConcurrencyTest {
     private static final Instant HELD_UNTIL = OPENED_AT.plus(Duration.ofMinutes(10));
     private static final Instant JUST_BEFORE_HELD_UNTIL = HELD_UNTIL.minus(1, ChronoUnit.MICROS);
     private static final int OTHER_BUYERS = 49;
+    private static final int DUPLICATE_CONFIRMS = 20;
     private static final int BOUNDARY_ROUNDS = 10;
 
     @Autowired
@@ -116,6 +117,35 @@ class OrderConfirmConcurrencyTest {
                         """.formatted(seatId))).isEqualTo(1);
             }
         }
+    }
+
+    @Test
+    @DisplayName("같은 주문을 동시에 여러 번 확정해도 모두 같은 응답을 받고 주문과 좌석은 한 번 확정한 상태다")
+    void concurrentConfirmsOfSameOrderReturnSameResult() throws Exception {
+        Showtime showtime = createShowtime(4);
+        Long first = saveSeat(showtime, "A1");
+        Long second = saveSeat(showtime, "A2");
+        clock.setInstant(OPENED_AT);
+        Long orderId = orderService.hold(new CreateOrderRequest(showtime.getId(), 1L, List.of(first, second)))
+                .orderId();
+        clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(1)));
+
+        List<Callable<OrderResponse>> tasks = new ArrayList<>();
+        for (int i = 0; i < DUPLICATE_CONFIRMS; i++) {
+            tasks.add(() -> orderService.confirm(orderId, new ConfirmOrderRequest(1L)));
+        }
+        List<OrderResponse> responses = runConcurrently(tasks);
+
+        assertThat(responses).hasSize(DUPLICATE_CONFIRMS).containsOnly(responses.getFirst());
+        assertThat(responses.getFirst().status().name()).isEqualTo("CONFIRMED");
+        assertThat(responses.getFirst().seatIds()).containsExactly(first, second);
+        assertThat(orderStatus(orderId)).isEqualTo("CONFIRMED");
+        assertThat(count("""
+                SELECT COUNT(*) FROM seat
+                WHERE status = 'SOLD' AND current_order_id = %d AND held_until IS NULL
+                """.formatted(orderId))).isEqualTo(2);
+        assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo(2);
     }
 
     @Test
@@ -222,12 +252,12 @@ class OrderConfirmConcurrencyTest {
         orderService.hold(new CreateOrderRequest(showtime.getId(), userId, List.of(seatId)));
     }
 
-    private List<Outcome> runConcurrently(List<Callable<Outcome>> tasks) throws Exception {
+    private <T> List<T> runConcurrently(List<Callable<T>> tasks) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(tasks.size());
         CountDownLatch ready = new CountDownLatch(tasks.size());
         CountDownLatch start = new CountDownLatch(1);
-        List<Future<Outcome>> futures = new ArrayList<>();
-        for (Callable<Outcome> task : tasks) {
+        List<Future<T>> futures = new ArrayList<>();
+        for (Callable<T> task : tasks) {
             futures.add(executor.submit(() -> {
                 ready.countDown();
                 start.await();
@@ -236,12 +266,12 @@ class OrderConfirmConcurrencyTest {
         }
         ready.await();
         start.countDown();
-        List<Outcome> outcomes = new ArrayList<>();
-        for (Future<Outcome> future : futures) {
-            outcomes.add(future.get(30, TimeUnit.SECONDS));
+        List<T> results = new ArrayList<>();
+        for (Future<T> future : futures) {
+            results.add(future.get(30, TimeUnit.SECONDS));
         }
         executor.shutdown();
-        return outcomes;
+        return results;
     }
 
     private Showtime createShowtime(int maxSeatsPerUser) {
