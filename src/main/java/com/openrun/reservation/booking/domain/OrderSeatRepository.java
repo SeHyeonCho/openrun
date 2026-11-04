@@ -1,6 +1,7 @@
 package com.openrun.reservation.booking.domain;
 
 import java.time.Instant;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,4 +18,7 @@ public interface OrderSeatRepository extends JpaRepository<OrderSeat, Long> {
             """)
     long countActiveSeats(@Param("showtimeId") Long showtimeId, @Param("userId") Long userId,
             @Param("now") Instant now);
+
+    @Query("select os.seat.id from OrderSeat os where os.order.id = :orderId order by os.seat.id")
+    List<Long> findSeatIdsByOrderId(@Param("orderId") Long orderId);
 }
