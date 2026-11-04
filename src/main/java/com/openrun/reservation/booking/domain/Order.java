@@ -51,4 +51,10 @@ public class Order extends BaseEntity {
     public static Order hold(Showtime showtime, Long userId, Instant now) {
         return new Order(showtime, userId, OrderStatus.HELD, showtime.holdDeadlineFrom(now));
     }
+
+    public void expire() {
+        if (status == OrderStatus.HELD) {
+            this.status = OrderStatus.EXPIRED;
+        }
+    }
 }

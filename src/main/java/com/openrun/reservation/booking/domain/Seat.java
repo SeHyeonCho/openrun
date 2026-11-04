@@ -61,12 +61,20 @@ public class Seat extends BaseEntity {
         return new Seat(showtime, type, label, SeatStatus.NOT_FOR_SALE);
     }
 
-    public boolean isAvailable() {
-        return status == SeatStatus.AVAILABLE;
+    public boolean isAvailableAt(Instant now) {
+        return status == SeatStatus.AVAILABLE || isHoldExpiredAt(now);
     }
 
-    public void hold(Order order) {
-        if (!isAvailable()) {
+    public boolean isHoldExpiredAt(Instant now) {
+        return status == SeatStatus.HELD && !now.isBefore(heldUntil);
+    }
+
+    public SeatStatus statusAt(Instant now) {
+        return isHoldExpiredAt(now) ? SeatStatus.AVAILABLE : status;
+    }
+
+    public void hold(Order order, Instant now) {
+        if (!isAvailableAt(now)) {
             throw new IllegalStateException("선점할 수 없는 좌석이다: " + label);
         }
         this.status = SeatStatus.HELD;

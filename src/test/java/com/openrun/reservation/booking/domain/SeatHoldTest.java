@@ -37,7 +37,7 @@ class SeatHoldTest {
         Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
         Order order = Order.hold(showtime, 1L, NOW);
 
-        seat.hold(order);
+        seat.hold(order, NOW);
 
         assertThat(seat.getStatus()).isEqualTo(SeatStatus.HELD);
         assertThat(seat.getCurrentOrder()).isSameAs(order);
@@ -49,7 +49,7 @@ class SeatHoldTest {
     void rejectsSeatNotForSale() {
         Seat seat = Seat.notForSale(showtime, SeatType.RESERVED, "A1");
 
-        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 1L, NOW)))
+        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 1L, NOW), NOW))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(seat.getStatus()).isEqualTo(SeatStatus.NOT_FOR_SALE);
     }
@@ -59,10 +59,59 @@ class SeatHoldTest {
     void rejectsSeatAlreadyHeld() {
         Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
         Order first = Order.hold(showtime, 1L, NOW);
-        seat.hold(first);
+        seat.hold(first, NOW);
 
-        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 2L, NOW)))
+        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 2L, NOW), NOW))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(seat.getCurrentOrder()).isSameAs(first);
+    }
+
+    @Test
+    @DisplayName("선점 기한 전에는 만료되지 않고 기한 시각부터 만료된 것으로 본다")
+    void holdExpiresFromHeldUntil() {
+        Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
+        Order order = Order.hold(showtime, 1L, NOW);
+        seat.hold(order, NOW);
+        Instant heldUntil = order.getHeldUntil();
+
+        assertThat(seat.isAvailableAt(heldUntil.minusNanos(1))).isFalse();
+        assertThat(seat.statusAt(heldUntil.minusNanos(1))).isEqualTo(SeatStatus.HELD);
+        assertThat(seat.isAvailableAt(heldUntil)).isTrue();
+        assertThat(seat.statusAt(heldUntil)).isEqualTo(SeatStatus.AVAILABLE);
+    }
+
+    @Test
+    @DisplayName("선점 기한이 지난 좌석은 다른 주문이 다시 선점할 수 있다")
+    void holdsExpiredSeatAgain() {
+        Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
+        Order first = Order.hold(showtime, 1L, NOW);
+        seat.hold(first, NOW);
+        Instant afterExpiry = first.getHeldUntil();
+        Order second = Order.hold(showtime, 2L, afterExpiry);
+
+        seat.hold(second, afterExpiry);
+
+        assertThat(seat.getCurrentOrder()).isSameAs(second);
+        assertThat(seat.getHeldUntil()).isEqualTo(second.getHeldUntil());
+    }
+
+    @Test
+    @DisplayName("선점 중인 주문을 만료하면 만료 상태가 되고 다시 만료해도 그대로다")
+    void expiresHeldOrder() {
+        Order order = Order.hold(showtime, 1L, NOW);
+
+        order.expire();
+        order.expire();
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.EXPIRED);
+    }
+
+    @Test
+    @DisplayName("판매하지 않는 좌석은 시각과 상관없이 선점할 수 없다")
+    void seatNotForSaleNeverAvailable() {
+        Seat seat = Seat.notForSale(showtime, SeatType.RESERVED, "A1");
+
+        assertThat(seat.isAvailableAt(NOW.plus(Duration.ofDays(365)))).isFalse();
+        assertThat(seat.statusAt(NOW)).isEqualTo(SeatStatus.NOT_FOR_SALE);
     }
 }

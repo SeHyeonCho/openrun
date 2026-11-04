@@ -57,10 +57,10 @@ public class OrderService {
 
         List<Seat> seats = seatRepository.findAllByIdForUpdate(seatIds);
         rejectSeatsOutsideShowtime(showtime, seatIds, seats);
-        rejectUnavailableSeats(seats);
+        rejectUnavailableSeats(seats, now);
 
         Order order = orderRepository.save(Order.hold(showtime, request.userId(), now));
-        seats.forEach(seat -> seat.hold(order));
+        seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
         return OrderResponse.of(order, showtime.getId(), seats);
     }
@@ -79,8 +79,8 @@ public class OrderService {
         }
     }
 
-    private void rejectUnavailableSeats(List<Seat> seats) {
-        List<Long> unavailable = seats.stream().filter(seat -> !seat.isAvailable()).map(Seat::getId).toList();
+    private void rejectUnavailableSeats(List<Seat> seats, Instant now) {
+        List<Long> unavailable = seats.stream().filter(seat -> !seat.isAvailableAt(now)).map(Seat::getId).toList();
         if (!unavailable.isEmpty()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_NOT_AVAILABLE,
                     "선점할 수 없는 좌석이 있습니다.", unavailable);
