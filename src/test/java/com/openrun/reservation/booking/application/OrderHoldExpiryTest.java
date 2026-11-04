@@ -98,6 +98,22 @@ class OrderHoldExpiryTest {
     }
 
     @Test
+    @DisplayName("현재 시각에 마이크로초 미만 값이 있어도 기한 직전의 선점은 1인 최대 좌석 수에 포함한다")
+    void heldSeatsCountTowardLimitJustBeforeHeldUntilWithSubMicrosecondClock() {
+        Showtime showtime = createShowtime();
+        Long heldSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
+        Long otherSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A2")).getId();
+        clock.setInstant(OPENED_AT);
+        orderService.hold(new CreateOrderRequest(showtime.getId(), 1L, List.of(heldSeatId)));
+
+        clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(HOLD_MINUTES)).minusNanos(1));
+
+        assertThatThrownBy(() -> orderService.hold(new CreateOrderRequest(showtime.getId(), 1L, List.of(otherSeatId))))
+                .isInstanceOfSatisfying(SeatHoldRejectedException.class,
+                        e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_LIMIT_EXCEEDED));
+    }
+
+    @Test
     @DisplayName("확정한 좌석은 선점 기한이 지나도 1인 최대 좌석 수에 포함한다")
     void confirmedSeatsCountTowardLimitAfterHeldUntil() {
         Showtime showtime = createShowtime();
