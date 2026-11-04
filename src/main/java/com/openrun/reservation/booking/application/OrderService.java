@@ -66,7 +66,7 @@ public class OrderService {
         return OrderResponse.of(order, showtime.getId(), seats);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public OrderResponse confirm(Long orderId, ConfirmOrderRequest request) {
         OrderOwner owner = orderRepository.findOwnerById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
