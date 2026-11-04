@@ -1,10 +1,10 @@
 package com.openrun.reservation.booking.application;
 
 import com.openrun.reservation.booking.domain.Order;
+import com.openrun.reservation.booking.domain.OrderOwner;
 import com.openrun.reservation.booking.domain.OrderRepository;
 import com.openrun.reservation.booking.domain.OrderSeat;
 import com.openrun.reservation.booking.domain.OrderSeatRepository;
-import com.openrun.reservation.booking.domain.OrderStatus;
 import com.openrun.reservation.booking.domain.Seat;
 import com.openrun.reservation.booking.domain.SeatRepository;
 import com.openrun.reservation.booking.domain.Showtime;
@@ -49,8 +49,8 @@ public class OrderService {
         }
 
         showtimeBuyerLock.acquire(showtime.getId(), request.userId());
-        long heldSeats = orderSeatRepository.countHeldSeats(showtime.getId(), request.userId(), OrderStatus.HELD, now);
-        if (heldSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
+        long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), request.userId(), now);
+        if (activeSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_LIMIT_EXCEEDED,
                     "1인 최대 좌석 수(" + showtime.getMaxSeatsPerUser() + "석)를 넘습니다.");
         }
@@ -64,6 +64,30 @@ public class OrderService {
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
         return OrderResponse.of(order, showtime.getId(), seats);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse confirm(Long orderId, ConfirmOrderRequest request) {
+        OrderOwner owner = orderRepository.findOwnerById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        if (!owner.userId().equals(request.userId())) {
+            throw new OrderConfirmRejectedException(OrderConfirmRejection.ORDER_NOT_OWNED, "다른 구매자의 주문입니다.");
+        }
+
+        showtimeBuyerLock.acquire(owner.showtimeId(), owner.userId());
+        List<Seat> seats = seatRepository.findAllByIdForUpdate(orderSeatRepository.findSeatIdsByOrderId(orderId));
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        Instant now = clock.instant();
+
+        if (!order.isConfirmed()) {
+            if (!order.isConfirmableAt(now)) {
+                throw new OrderConfirmRejectedException(OrderConfirmRejection.ORDER_EXPIRED, "선점 기한이 지난 주문입니다.");
+            }
+            order.confirm(now);
+            seats.forEach(seat -> seat.confirm(order));
+        }
+        return OrderResponse.of(order, owner.showtimeId(), seats);
     }
 
     private void rejectSeatsOutsideShowtime(Showtime showtime, List<Long> seatIds, List<Seat> seats) {

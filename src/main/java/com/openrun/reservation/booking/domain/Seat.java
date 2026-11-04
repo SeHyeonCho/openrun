@@ -81,4 +81,12 @@ public class Seat extends BaseEntity {
         this.currentOrder = order;
         this.heldUntil = order.getHeldUntil();
     }
+
+    public void confirm(Order order) {
+        if (status != SeatStatus.HELD || currentOrder != order) {
+            throw new IllegalStateException("이 주문이 선점한 좌석이 아니다: " + label);
+        }
+        this.status = SeatStatus.SOLD;
+        this.heldUntil = null;
+    }
 }
