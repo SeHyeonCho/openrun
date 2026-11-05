@@ -1,0 +1,36 @@
+.button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    border-radius: var(--radius-pill);
+    font-family: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.primary {
+    height: var(--size-control-lg);
+    border: none;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-size: 16px;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.secondary {
+    height: var(--size-control-md);
+    border: 1.5px solid var(--color-line-strong);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.button:disabled,
+.button[aria-disabled='true'] {
+    opacity: var(--opacity-disabled);
+    cursor: not-allowed;
+}

@@ -1,0 +1,93 @@
+.intro {
+    display: flex;
+    gap: var(--space-16);
+    align-items: flex-start;
+}
+
+.poster {
+    width: 108px;
+    height: 144px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-muted);
+}
+
+.info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.title {
+    margin-bottom: var(--space-4);
+    overflow-wrap: anywhere;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.showtimes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: 0;
+    list-style: none;
+}
+
+.showtime {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px var(--space-16);
+    border: 2px solid var(--color-surface-muted);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-muted);
+    color: var(--color-ink);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.showtime[aria-pressed='true'] {
+    background: var(--color-surface);
+    border-color: var(--color-ink);
+}
+
+.showtimeHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-12);
+}
+
+.loginCard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    padding: var(--space-20);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+}
+
+.guide {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+}
+
+.countdown {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}

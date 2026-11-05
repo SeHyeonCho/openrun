@@ -1,0 +1,23 @@
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-12);
+    padding: var(--space-48) 0;
+}
+
+.spinner {
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner {
+        animation: none;
+    }
+}
