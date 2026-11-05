@@ -1,0 +1,19 @@
+.page {
+    position: relative;
+    width: 100%;
+    max-width: var(--size-page-max);
+    min-height: 100dvh;
+    margin: 0 auto;
+    background: var(--color-surface);
+}
+
+.main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding: var(--space-20) var(--space-16) calc(var(--space-48) + var(--bottom-space, 0px));
+}
+
+.withBottomBar {
+    --bottom-space: 160px;
+}
