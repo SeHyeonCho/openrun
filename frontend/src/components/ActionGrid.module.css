@@ -1,0 +1,29 @@
+.grid {
+    display: grid;
+    grid-template-columns: repeat(var(--columns, 3), minmax(0, 1fr));
+    gap: var(--space-8);
+}
+
+.action {
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-8) var(--space-4);
+    border: 1.5px solid var(--color-line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    cursor: pointer;
+}
+
+.action:disabled {
+    opacity: var(--opacity-disabled);
+    cursor: progress;
+}

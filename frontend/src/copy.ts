@@ -1,4 +1,5 @@
 import type { SalesStatus, SeatKind } from './api/types';
+import { numbersWith } from './lib/josa';
 
 export const copy = {
     common: {
@@ -127,5 +128,87 @@ export const copy = {
             soldOut: '고르는 사이 매진됐어요.',
             SEAT_LIMIT_EXCEEDED: (max: number, owned: number) => `1인 최대 ${max}매예요. 이미 ${owned}매를 가지고 있어요.`,
         },
+    },
+    ticket: {
+        label: '모바일 티켓',
+        entry: '입장번호',
+        quantity: (count: number) => `${count}매`,
+        qr: '입장용 QR',
+        qrDim: '확정 전이라 흐린 입장용 QR',
+    },
+    orderPage: {
+        status: {
+            held: '선점 중',
+            confirmed: '확정',
+            expired: '기한 지남',
+            cancelled: '취소',
+        },
+        held: {
+            remaining: '확정까지 남은 시간',
+            deadline: (at: string) => `${at}까지 확정해야 예매가 끝나요.`,
+            qrNote: '확정하면 입장용 QR이 선명해져요.',
+            confirm: '확정',
+            confirming: '확정하는 중',
+            cancel: '선점 취소',
+            share: '공유하기',
+        },
+        cancelSheet: {
+            title: '선점을 취소할까요?',
+            body: (numbers: number[]) => `입장번호 ${numbersWith(numbers, ['이', '가'])} 바로 다른 사람에게 풀려요. 다시 예매하면 다른 번호를 받을 수 있어요.`,
+            caption: (count: number) => `취소한 ${count}매는 1인 최대 매수에서 빠져요.`,
+            confirm: '선점 취소',
+            cancelling: '취소하는 중',
+            keep: '계속 예매하기',
+        },
+        confirmed: {
+            title: '예매가 끝났어요',
+            body: '입구에서 이 화면의 QR을 보여 주세요. 내 주문에서 언제든 다시 열 수 있어요.',
+            qrNote: '같은 QR은 입장할 때 한 번만 통과해요.',
+            saveImage: '이미지로 저장',
+            addCalendar: '캘린더에 추가',
+            share: '공유하기',
+        },
+        expired: {
+            title: '선점 기한이 지났어요',
+            body: (at: string, numbers: number[]) => `${at}까지 확정하지 않아 이 주문은 확정할 수 없어요. 입장번호 ${numbersWith(numbers, ['은', '는'])} 다시 풀렸어요.`,
+            caption: '다시 고르면 남은 번호 가운데 앞 번호부터 새로 배정돼요.',
+            retry: '다시 고르기',
+        },
+        cancelled: {
+            title: '선점을 취소했어요',
+            body: (numbers: number[]) => `입장번호 ${numbersWith(numbers, ['은', '는'])} 다른 사람이 예매할 수 있게 풀렸어요.`,
+            retry: '다시 고르기',
+        },
+        viewer: {
+            title: '공유받은 주문이에요',
+            body: '주문 내용과 QR만 볼 수 있어요. 확정과 선점 취소는 주문한 사람이 로그인해야 할 수 있어요.',
+            ownerLogin: '내가 예매한 주문이면 로그인해 주세요.',
+            remaining: '확정까지',
+            qrNote: '주문한 사람이 확정하면 QR이 선명해져요.',
+            toShow: '이 공연 보러 가기',
+        },
+        notFound: {
+            title: '주문을 찾을 수 없어요',
+            body: '링크가 잘렸거나 잘못 복사됐을 수 있어요. 받은 링크를 다시 확인해 주세요.',
+            caption: '내가 예매한 주문이면 로그인한 뒤 내 주문에서 찾을 수 있어요.',
+            toMyOrders: '내 주문 보기',
+        },
+        problem: {
+            ORDER_EXPIRED: '선점 기한이 지나 확정할 수 없어요.',
+            ORDER_CANCELLED: '이미 취소한 주문이에요.',
+            ORDER_CONFIRMED: '이미 확정한 주문이라 여기서 취소할 수 없어요.',
+            confirmNoResponse: '확정이 됐는지 알 수 없어요. 다시 눌러도 같은 결과예요.',
+            cancelNoResponse: '취소가 됐는지 알 수 없어요. 다시 눌러도 같은 결과예요.',
+        },
+        toast: {
+            shared: '공유 창을 열었어요.',
+            copied: '주문 링크를 복사했어요.',
+            copyFailed: '링크를 복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.',
+            saved: '티켓 이미지를 저장했어요.',
+            saveFailed: '이미지를 만들지 못했어요. 화면을 캡처해 두세요.',
+            calendar: '캘린더 파일을 받았어요. 열면 일정에 추가돼요.',
+        },
+        shareTitle: (title: string) => `${title} 예매`,
+        calendarDescription: (numbers: number[], buyer: string, url: string) => `입장번호 ${numbers.join(' · ')} · 예매자 ${buyer}\n주문 보기 ${url}`,
     },
 };
