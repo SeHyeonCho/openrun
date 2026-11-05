@@ -14,7 +14,7 @@ describe('내 주문', () => {
             '/orders/cancelled-demo',
         ]);
         const [held, confirmed, expired, cancelled] = items;
-        expect(within(held!).getByText('확정 전')).toBeTruthy();
+        expect(within(held!).getByText('확정 대기')).toBeTruthy();
         expect(within(held!).getByText(/2매 · 입장번호 37 · 38 · 09:\d\d 남음/)).toBeTruthy();
         expect(within(confirmed!).getByText('확정')).toBeTruthy();
         expect(within(expired!).getByText('기한 지남')).toBeTruthy();

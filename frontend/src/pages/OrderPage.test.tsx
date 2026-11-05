@@ -22,7 +22,7 @@ describe('주문 화면', () => {
         expect(within(ticket).getByRole('img', { name: '확정 전이라 흐린 입장용 QR' })).toBeTruthy();
         expect(screen.getByRole('timer').textContent).toMatch(/^09:(4[01]|39)$/);
         expect(queryButton('확정')).toBeTruthy();
-        expect(queryButton('선택 취소')).toBeTruthy();
+        expect(queryButton('예매 취소')).toBeTruthy();
         expect(queryButton('공유하기')).toBeTruthy();
     });
 
@@ -31,23 +31,23 @@ describe('주문 화면', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: '확정' }));
 
-        expect(await screen.findByRole('heading', { name: '예매가 끝났어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '예매가 확정됐어요' })).toBeTruthy();
         expect(screen.getByRole('img', { name: '입장용 QR' })).toBeTruthy();
         expect(queryButton('이미지로 저장')).toBeTruthy();
         expect(queryButton('캘린더에 추가')).toBeTruthy();
         expect(queryButton('공유하기')).toBeTruthy();
-        expect(queryButton('선택 취소')).toBeNull();
+        expect(queryButton('예매 취소')).toBeNull();
     });
 
     it('선점 취소는 확인 시트를 거쳐 취소하고, 다시 고르기로 수량 선택에 돌아간다', async () => {
         renderRoute('/orders/held-demo', { loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '선택 취소' }));
-        const sheet = screen.getByRole('dialog', { name: '선택을 취소할까요?' });
+        fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
+        const sheet = screen.getByRole('dialog', { name: '예매를 취소할까요?' });
         expect(within(sheet).getByText(/입장번호 37 · 38이 바로 다른 사람에게 풀려요/)).toBeTruthy();
-        fireEvent.click(within(sheet).getByRole('button', { name: '선택 취소' }));
+        fireEvent.click(within(sheet).getByRole('button', { name: '예매 취소' }));
 
-        expect(await screen.findByRole('heading', { name: '선택을 취소했어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
         expect(screen.queryByText(/풀렸어요/)).toBeNull();
         expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/shows/1/showtimes/12/quantity');
     });
@@ -82,17 +82,17 @@ describe('주문 화면', () => {
         fireEvent.click(await screen.findByRole('button', { name: '확정' }));
 
         expect(await screen.findByText('이미 취소한 주문이에요.')).toBeTruthy();
-        expect(await screen.findByRole('heading', { name: '선택을 취소했어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
     });
 
     it('이미 확정한 주문을 취소하면 취소할 수 없다고 알리고 확정 화면을 보여 준다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'cancel-confirmed', loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '선택 취소' }));
-        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택 취소' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
+        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '예매 취소' }));
 
         expect(await screen.findByText('이미 확정한 주문이라 여기서 취소할 수 없어요.')).toBeTruthy();
-        expect(await screen.findByRole('heading', { name: '예매가 끝났어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '예매가 확정됐어요' })).toBeTruthy();
     });
 
     it('확정 응답을 받지 못하면 다시 눌러도 된다고 알리고, 다시 누르면 같은 결과를 받는다', async () => {
@@ -105,7 +105,7 @@ describe('주문 화면', () => {
         await waitFor(() => expect(disabled(again)).toBe(false));
         fireEvent.click(again);
 
-        expect(await screen.findByRole('heading', { name: '예매가 끝났어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '예매가 확정됐어요' })).toBeTruthy();
     });
 
     it('주문 링크로 들어온 다른 사람에게는 확정·취소 버튼을 보여 주지 않는다', async () => {
@@ -114,7 +114,7 @@ describe('주문 화면', () => {
         expect(await screen.findByRole('heading', { name: '공유받은 주문이에요' })).toBeTruthy();
         expect(screen.getByText('39 · 40')).toBeTruthy();
         expect(queryButton('확정')).toBeNull();
-        expect(queryButton('선택 취소')).toBeNull();
+        expect(queryButton('예매 취소')).toBeNull();
         expect(screen.getByRole('link', { name: '이 공연 보러 가기' })).toBeTruthy();
     });
 
