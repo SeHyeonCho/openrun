@@ -144,7 +144,7 @@ stateDiagram-v2
 
 ## 6. 실패 상황
 
-규칙 위반은 `409`와 함께 응답 본문의 `code`로 이유를 알린다. 문제 좌석이 있으면 `seatIds`로 알려 준다. 응답 본문은 RFC 9457 Problem Details 형식이다.
+실패 응답은 아래 표의 HTTP 상태와 `code`로 이유를 알린다. 규칙 위반은 `409`다. 문제 좌석이 있으면 `seatIds`로 알려 준다. 응답 본문은 RFC 9457 Problem Details 형식이다.
 
 | 상황 | HTTP 상태 | `code` | `seatIds` |
 |---|---|---|---|
