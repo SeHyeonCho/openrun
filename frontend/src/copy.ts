@@ -211,4 +211,23 @@ export const copy = {
         shareTitle: (title: string) => `${title} 예매`,
         calendarDescription: (numbers: number[], buyer: string, url: string) => `입장번호 ${numbers.join(' · ')} · 예매자 ${buyer}\n주문 보기 ${url}`,
     },
+    myOrdersPage: {
+        title: '내 주문',
+        owner: (nickname: string) => `${nickname} 님이 카카오 계정으로 예매한 주문이에요.`,
+        empty: '아직 예매한 주문이 없어요',
+        emptyBody: '공연 페이지에서 회차를 골라 예매하면 여기에 모여요.',
+        footer: '주문 링크를 잃어버려도 여기서 다시 열 수 있어요.',
+        note: {
+            held: (count: number, numbers: number[], left: string) => `${count}매 · 입장번호 ${numbers.join(' · ')} · ${left} 남음`,
+            confirmed: (count: number, numbers: number[]) => `${count}매 · 입장번호 ${numbers.join(' · ')}`,
+            expired: (count: number) => `${count}매 · 확정하지 않아 기한이 지났어요`,
+            cancelled: (count: number) => `${count}매 · 선점을 취소했어요`,
+        },
+        login: {
+            title: '로그인하면 주문을 볼 수 있어요',
+            body: '예매할 때 쓴 카카오 계정으로 로그인하면, 링크를 잃어버린 주문도 여기서 다시 찾아요.',
+            linkTitle: '주문 링크를 받았나요?',
+            linkBody: '주문 링크는 로그인하지 않아도 열려요. 받은 링크를 누르면 표와 QR을 볼 수 있어요.',
+        },
+    },
 };
