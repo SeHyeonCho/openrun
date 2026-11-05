@@ -274,6 +274,7 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
                     <h2 className="t-heading">{text.quantity}</h2>
                     <span className="t-label">
                         {text.remaining} <span className={styles.number}>{remaining}</span>
+                        {text.seatUnit}
                     </span>
                 </div>
                 <Stepper

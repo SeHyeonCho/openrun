@@ -43,7 +43,7 @@ describe('공연 페이지', () => {
 
         const onSale = screen.getByRole('button', { name: /12\.05 SAT 19:00–21:30/ });
         fireEvent.click(onSale);
-        expect(within(onSale).getByText(/남은 수 50 · 1인 최대 4매/)).toBeTruthy();
+        expect(within(onSale).getByText(/잔여 50석 · 1인 최대 4매/)).toBeTruthy();
         expect(disabled(screen.getByRole('button', { name: '예매하기' }))).toBe(false);
     });
 
