@@ -287,14 +287,14 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
 
     const closed = shownView === 'expired'
         ? { title: text.expired.title, body: text.expired.body(formatDateTime(order.heldUntil), order.entryNumbers), caption: text.expired.caption, retry: text.expired.retry }
-        : { title: text.cancelled.title, body: text.cancelled.body(order.entryNumbers), caption: undefined, retry: text.cancelled.retry };
+        : { title: text.cancelled.title, body: undefined, caption: undefined, retry: text.cancelled.retry };
 
     return (
         <Page header={header} bottomBar={<BottomBar><ButtonLink to={retryPath}>{closed.retry}</ButtonLink></BottomBar>}>
             <section className={styles.headline} role="status">
                 <StatusBadge view={shownView} />
                 <h1 className="t-title">{closed.title}</h1>
-                <p className="t-body">{closed.body}</p>
+                {closed.body && <p className="t-body">{closed.body}</p>}
                 {closed.caption && <p className="t-caption">{closed.caption}</p>}
             </section>
             <TicketCard order={order} qr="none" />

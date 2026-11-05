@@ -176,7 +176,6 @@ export const copy = {
         },
         cancelled: {
             title: '선점을 취소했어요',
-            body: (numbers: number[]) => `입장번호 ${numbersWith(numbers, ['은', '는'])} 다른 사람이 예매할 수 있게 풀렸어요.`,
             retry: '다시 고르기',
         },
         viewer: {

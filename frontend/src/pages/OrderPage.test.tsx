@@ -48,6 +48,7 @@ describe('주문 화면', () => {
         fireEvent.click(within(sheet).getByRole('button', { name: '선점 취소' }));
 
         expect(await screen.findByRole('heading', { name: '선점을 취소했어요' })).toBeTruthy();
+        expect(screen.queryByText(/풀렸어요/)).toBeNull();
         expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/shows/1/showtimes/12/quantity');
     });
 
