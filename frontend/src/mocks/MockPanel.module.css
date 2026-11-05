@@ -1,0 +1,66 @@
+.panel {
+    max-width: var(--size-page-max);
+    margin: 0 auto;
+    background: var(--color-ink);
+    color: var(--color-on-primary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.summary {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: 0 var(--space-16);
+    cursor: pointer;
+    list-style: none;
+}
+
+.summary::-webkit-details-marker {
+    display: none;
+}
+
+.tag {
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-weight: 700;
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    padding: var(--space-8) var(--space-16) var(--space-16);
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+.select {
+    width: 100%;
+    min-height: var(--size-touch-min);
+    padding: 0 var(--space-8);
+    border-radius: var(--radius-md);
+    border: none;
+    color: var(--color-ink);
+}
+
+.chip {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--space-12);
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: transparent;
+    color: inherit;
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+}
