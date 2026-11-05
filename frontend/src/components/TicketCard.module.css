@@ -1,0 +1,90 @@
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    padding: var(--space-20);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-xl);
+    background: var(--color-surface);
+}
+
+.void {
+    border-style: dashed;
+    border-color: var(--color-line-strong);
+    background: var(--color-surface-muted);
+    color: var(--color-ink-muted);
+}
+
+.head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.title {
+    font-size: 28px;
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+}
+
+.latin {
+    font-family: var(--font-display);
+    line-height: 0.95;
+}
+
+.divider {
+    border-top: 1.5px dashed var(--color-line-strong);
+}
+
+.row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-12);
+}
+
+.entry {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.numbers {
+    color: var(--color-accent);
+}
+
+.void .numbers {
+    color: var(--color-ink-muted);
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+}
+
+.buyer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-4);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-8);
+    padding-top: var(--space-4);
+    text-align: center;
+}
+
+.qrCode {
+    padding: 10px;
+    background: var(--color-surface);
+    line-height: 0;
+}
+
+.dim {
+    opacity: 0.18;
+}

@@ -1,0 +1,44 @@
+.region {
+    position: fixed;
+    left: 50%;
+    bottom: calc(150px + env(safe-area-inset-bottom));
+    z-index: 40;
+    width: calc(100% - 2 * var(--space-16));
+    max-width: calc(var(--size-page-max) - 2 * var(--space-16));
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-8) var(--space-8) var(--space-20);
+    border-radius: var(--radius-pill);
+    background: var(--color-toast);
+    color: var(--color-on-toast);
+    box-shadow: var(--shadow-toast);
+    pointer-events: auto;
+}
+
+.message {
+    flex: 1;
+    padding: var(--space-4) 0;
+    font-size: 14px;
+    line-height: 1.5;
+    font-weight: 600;
+}
+
+.close {
+    width: var(--size-touch-min);
+    height: var(--size-touch-min);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}

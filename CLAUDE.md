@@ -7,6 +7,7 @@
 - Java 21, Spring Boot 4.1, Gradle
 - MySQL 8.4, Redis 7, Redisson 4.5.0 (Spring BOM이 관리하지 않으므로 버전을 직접 명시한다)
 - 로컬 인프라(MySQL, Redis)는 Docker Compose로 띄우고, 애플리케이션은 IDE에서 실행한다
+- 구매자 화면: TypeScript, React, Vite, React Router, React Query, MSW(목 API), Vitest. `frontend/`에 있다
 
 ## 명령어
 
@@ -16,6 +17,7 @@
   - 테스트는 Testcontainers로 띄운 MySQL·Redis에서 실행된다. Docker가 켜져 있어야 하고, `.env`와 Compose 컨테이너는 필요 없다
   - 여러 스레드가 커밋하는 테스트는 끝날 때 `DatabaseCleaner`로 데이터를 지운다
 - 로컬 실행: `./gradlew bootRun --args='--spring.profiles.active=local'`
+- 구매자 화면(`frontend/`): `npm ci` 후 `npm run dev`(목 API), `npm test`, `npm run build`. 자세한 내용은 `frontend/README.md`
 - 훅 활성화 (클론 후 한 번): `git config core.hooksPath .githooks`
 
 ## GitHub Flow
