@@ -1,0 +1,41 @@
+.stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-16) var(--space-20);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+}
+
+.button {
+    width: var(--size-control-md);
+    height: var(--size-control-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    cursor: pointer;
+}
+
+.button:disabled {
+    opacity: var(--opacity-disabled);
+    cursor: not-allowed;
+}
+
+.value {
+    font-family: var(--font-display);
+    font-size: 40px;
+    line-height: 1;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+.unit {
+    margin-left: var(--space-4);
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 700;
+}

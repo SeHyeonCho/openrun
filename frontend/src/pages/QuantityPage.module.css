@@ -1,0 +1,46 @@
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.number {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+}
+
+.input {
+    height: var(--size-control-md);
+    padding: 0 var(--space-16);
+    border: 1.5px solid var(--color-line-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-size: 16px;
+}
+
+.input[aria-invalid='true'] {
+    border-color: var(--color-ink);
+}
+
+.guide {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+}
+
+.countdown {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
