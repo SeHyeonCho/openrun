@@ -48,9 +48,9 @@ async function readProblem(response: Response, aborted: Promise<never>): Promise
     }
 }
 
-type RequestInit = { method?: string; body?: unknown; headers?: Record<string, string> };
+type RequestOptions = { method?: string; body?: unknown; headers?: Record<string, string> };
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestOptions = {}): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     const aborted = abortedBy(controller.signal);
