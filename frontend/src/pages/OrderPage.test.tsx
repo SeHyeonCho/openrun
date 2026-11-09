@@ -3,6 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadDb, saveDb } from '../mocks/db';
 import { orderView } from '../mocks/handlers';
+import { isMockLoggedIn, setMockLoggedIn } from '../mocks/scenarios';
 import { disabled, holdDemoEndsIn, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
@@ -157,22 +158,63 @@ describe('주문 화면', () => {
         expect(queryButton('예매 확정')).toBeNull();
     });
 
-    it('화면의 남은 시간이 있어도 서버가 기한 지남으로 거부하면 그 이유를 보여 준다', async () => {
+    it('화면의 남은 시간이 있어도 서버가 기한 지남으로 거부하면 그 이유를 보여 주고 다시 보내지 않는다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'confirm-expired', loggedIn: true });
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
 
         expect(await screen.findByText('예매 가능 시간이 지났어요.')).toBeTruthy();
         expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' })).toBeTruthy();
+        await new Promise((resolve) => setTimeout(resolve, 1_200));
+        expect(confirmRequests).toBe(1);
     });
 
-    it('이미 취소한 주문을 확정하면 이미 취소했다고 알리고 취소 화면을 보여 준다', async () => {
+    it('이미 취소한 주문을 확정하면 이미 취소했다고 알리고 취소 화면을 보여 주며 다시 보내지 않는다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'confirm-cancelled', loggedIn: true });
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
 
         expect(await screen.findByText('이미 취소한 예매예요.')).toBeTruthy();
         expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
+        await new Promise((resolve) => setTimeout(resolve, 1_200));
+        expect(confirmRequests).toBe(1);
+    });
+
+    it('확정하려는데 로그인이 끝나 있으면 다시 보내지 않고 로그인을 거친 뒤 확정할 수 있게 한다', async () => {
+        server.use(
+            http.post(
+                '/api/orders/:token/confirm',
+                () => {
+                    setMockLoggedIn(false);
+                    return HttpResponse.json({ status: 401 }, { status: 401 });
+                },
+                { once: true },
+            ),
+        );
+        renderRoute('/orders/held-demo', { loggedIn: true });
+
+        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        await waitFor(() => expect(isMockLoggedIn()).toBe(true));
+        expect(confirmRequests).toBe(1);
+
+        const again = await screen.findByRole('button', { name: '예매 확정' });
+        await waitFor(() => expect(disabled(again)).toBe(false));
+        fireEvent.click(again);
+
+        expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' })).toBeTruthy();
+        expect(confirmRequests).toBe(2);
+    });
+
+    it('취소 요청이 서버 오류(5xx)로 끝나면 알리고 주문을 다시 불러와 서버 상태를 보여 준다', async () => {
+        server.use(http.post('/api/orders/:token/cancel', () => HttpResponse.json({ status: 503 }, { status: 503 }), { once: true }));
+        renderRoute('/orders/held-demo', { loggedIn: true });
+
+        fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
+        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '예매 취소' }));
+
+        expect(await screen.findByText('요청을 처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.')).toBeTruthy();
+        expect(screen.getByRole('timer')).toBeTruthy();
+        expect(queryButton('예매 확정')).toBeTruthy();
     });
 
     it('이미 확정한 주문을 취소하면 취소할 수 없다고 알리고 확정 화면을 보여 준다', async () => {
