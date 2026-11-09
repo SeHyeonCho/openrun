@@ -311,7 +311,7 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
                     aria-invalid={!nameOk}
                     onChange={(e) => setBuyerName(e.target.value)}
                 />
-                <p id="buyer-name-note" className="t-caption">
+                <p id="buyer-name-note" className="t-caption" aria-live="polite">
                     {nameOk ? text.buyerNameNote : text.buyerNameRequired}
                 </p>
             </section>

@@ -37,7 +37,7 @@ describe('수량 선택', () => {
 
         fireEvent.change(name, { target: { value: '  ' } });
 
-        expect(screen.getByText('예매자 이름을 적어 주세요.')).toBeTruthy();
+        expect(screen.getByText('예매자 이름을 적어 주세요.').getAttribute('aria-live')).toBe('polite');
         expect(disabled(screen.getByRole('button', { name: '1매 선택 완료' }))).toBe(true);
     });
 
