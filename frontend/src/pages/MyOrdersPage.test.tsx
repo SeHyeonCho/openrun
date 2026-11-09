@@ -1,6 +1,8 @@
 import { fireEvent, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { renderRoute } from '../test/render';
+import { server } from '../test/setup';
 
 describe('내 주문', () => {
     it('로그인한 구매자의 주문만 최근 순으로 공연, 회차, 수량, 상태와 함께 보여 준다', async () => {
@@ -29,5 +31,14 @@ describe('내 주문', () => {
         fireEvent.click(screen.getByRole('button', { name: '카카오 로그인' }));
 
         expect(await screen.findByText('밤산책 님이 카카오 계정으로 예매한 내역이에요.')).toBeTruthy();
+    });
+
+    it('로그인 상태를 불러오지 못하면 다시 로그인하라고 하지 않고 다시 시도를 보여 준다', async () => {
+        server.use(http.get('/api/me', () => HttpResponse.json({ status: 500 }, { status: 500 })));
+        renderRoute('/me/orders', { loggedIn: true });
+
+        expect(await screen.findByRole('heading', { name: '정보를 불러오지 못했어요' })).toBeTruthy();
+        expect(screen.queryByRole('button', { name: '카카오 로그인' })).toBeNull();
+        expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
     });
 });

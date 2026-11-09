@@ -29,6 +29,9 @@ export function MyOrdersPage() {
     if (meQuery.isPending) {
         return <Page header={header}><Loading /></Page>;
     }
+    if (meQuery.isError) {
+        return <Page header={header}><LoadError onRetry={() => meQuery.refetch()} /></Page>;
+    }
     if (!me) {
         return <LoginRequired header={header} />;
     }

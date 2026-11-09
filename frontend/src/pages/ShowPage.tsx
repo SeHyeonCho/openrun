@@ -71,7 +71,8 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
     const navigate = useNavigate();
     const login = useLogin();
     const toast = useToast();
-    const me = useMe().data ?? null;
+    const meQuery = useMe();
+    const loggedOut = meQuery.data === null;
     const now = useServerNow();
     const [pickedId, setPickedId] = useState<number | null>(null);
 
@@ -93,7 +94,7 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
             return;
         }
         const quantityPath = `/shows/${show.id}/showtimes/${selected.id}/quantity`;
-        if (me) {
+        if (!loggedOut) {
             navigate(quantityPath);
             return;
         }
@@ -128,7 +129,7 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
                     enabled: false,
                 };
             case 'ON_SALE':
-                return { label: text.cta.book, note: me ? text.cta.bookNote : text.cta.bookNoteLoggedOut, enabled: true };
+                return { label: text.cta.book, note: loggedOut ? text.cta.bookNoteLoggedOut : text.cta.bookNote, enabled: true };
             case 'SOLD_OUT':
                 return { label: text.cta.soldOut, note: text.cta.soldOutNote, enabled: false };
             case 'SALES_CLOSED':
@@ -193,7 +194,15 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
                 </ul>
             </section>
 
-            {!me && (
+            {meQuery.isError && (
+                <Notice title={copy.common.meFailed} body={copy.common.meFailedBody}>
+                    <Button variant="secondary" onClick={() => void meQuery.refetch()}>
+                        {copy.common.retry}
+                    </Button>
+                </Notice>
+            )}
+
+            {loggedOut && (
                 <section className={styles.loginCard}>
                     <h2 className="t-heading">{anyBeforeSale ? text.login.beforeSaleTitle : text.login.title}</h2>
                     <p className="t-body">{anyBeforeSale ? text.login.beforeSaleBody : text.login.body}</p>

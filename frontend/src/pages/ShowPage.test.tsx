@@ -1,7 +1,9 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { isMockLoggedIn } from '../mocks/scenarios';
 import { disabled, renderRoute } from '../test/render';
+import { server } from '../test/setup';
 
 const opensIn = (ms: number, skewMs = 0) => (db: { showtimes: { id: number; salesOpensAt: string }[] }) => {
     const showtime = db.showtimes.find((s) => s.id === 21)!;
@@ -56,6 +58,15 @@ describe('공연 페이지', () => {
 
         await waitFor(() => expect(router.state.location.pathname).toBe('/shows/1/showtimes/12/quantity'));
         expect(isMockLoggedIn()).toBe(true);
+    });
+
+    it('로그인 상태를 불러오지 못하면 로그인 카드 대신 다시 시도를 보여 준다', async () => {
+        server.use(http.get('/api/me', () => HttpResponse.json({ status: 500 }, { status: 500 })));
+        renderRoute('/shows/1', { loggedIn: true });
+
+        expect(await screen.findByRole('heading', { name: '로그인 상태를 확인하지 못했어요' })).toBeTruthy();
+        expect(screen.queryByRole('button', { name: '카카오 로그인' })).toBeNull();
+        expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
     });
 
     it('없는 공연이면 공연을 찾을 수 없다고 알린다', async () => {

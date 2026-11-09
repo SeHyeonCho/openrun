@@ -12,6 +12,8 @@ export const copy = {
         retry: '다시 시도',
         unknownError: '요청을 처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
         loginFailed: '로그인하지 못했어요. 다시 시도해 주세요.',
+        meFailed: '로그인 상태를 확인하지 못했어요',
+        meFailedBody: '연결이 고르지 않을 수 있어요. 잠시 뒤 다시 시도해 주세요.',
     },
     login: {
         kakao: '카카오 로그인',

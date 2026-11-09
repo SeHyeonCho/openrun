@@ -58,7 +58,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     const toast = useToast();
     const login = useLogin();
     const location = useLocation();
-    const me = useMe().data ?? null;
+    const loggedOut = useMe().data === null;
     const [rejectedAs, setRejectedAs] = useState<OrderView | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [busy, setBusy] = useState<'confirm' | 'cancel' | 'image' | null>(null);
@@ -181,7 +181,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         return (
             <Page header={header} bottomBar={<BottomBar><ButtonLink to={showPath} variant="secondary">{text.viewer.toShow}</ButtonLink></BottomBar>}>
                 <Notice title={text.viewer.title} body={text.viewer.body}>
-                    {!me && (
+                    {loggedOut && (
                         <>
                             <p className="t-caption">{text.viewer.ownerLogin}</p>
                             <KakaoLoginButton onLogin={() => login(location.pathname).catch(() => toast(copy.common.loginFailed))} />

@@ -59,6 +59,9 @@ export function QuantityPage() {
     if (!showtime) {
         return <Page header={header}><Notice title={text.notFound} body={copy.showPage.notFoundBody} /></Page>;
     }
+    if (meQuery.isError) {
+        return <Page header={header}><LoadError onRetry={() => meQuery.refetch()} /></Page>;
+    }
     if (!me) {
         return <LoginRequired header={header} />;
     }
