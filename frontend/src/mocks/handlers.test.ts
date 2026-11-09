@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ApiError } from '../api/client';
 import { api } from '../api/queries';
-import { loadDb, MOCK_USER, saveDb } from './db';
+import { isLive, loadDb, MOCK_USER, mockNow, remainingOf, saveDb, shrinkRemainingTo } from './db';
 import { setMockLoggedIn, storeScenario, type ScenarioId } from './scenarios';
 
 const request = { showtimeId: 12, quantity: 1, buyerName: '밤산책' };
@@ -28,6 +28,24 @@ describe('목 API', () => {
         const tokens = loadDb().orders.map((o) => o.token);
         expect(tokens).toContain(first.token);
         expect(tokens).toContain(second.token);
+    });
+
+    it('잔여석보다 많은 선점 요청이 동시에 와도 잔여석만큼만 성공하고 입장번호가 겹치지 않는다', async () => {
+        const db = loadDb();
+        const showtime = db.showtimes.find((s) => s.id === 12)!;
+        shrinkRemainingTo(db, showtime, 3, mockNow(db));
+        saveDb(db);
+
+        const results = await Promise.allSettled(Array.from({ length: 8 }, () => api.createOrder(request, crypto.randomUUID())));
+
+        const succeeded = results.filter((r) => r.status === 'fulfilled');
+        const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        expect(succeeded).toHaveLength(3);
+        expect(rejected.map((r) => (r.reason as ApiError).code)).toEqual(Array(5).fill('SEAT_NOT_AVAILABLE'));
+        const after = loadDb();
+        const held = after.orders.filter((o) => o.showtimeId === 12 && isLive(o, mockNow(after))).flatMap((o) => o.entryNumbers);
+        expect(new Set(held).size).toBe(held.length);
+        expect(remainingOf(after, after.showtimes.find((s) => s.id === 12)!, mockNow(after))).toBe(0);
     });
 
     it('같은 구매자가 같은 식별자와 같은 내용으로 다시 보내면 처음 만든 주문을 그대로 돌려준다', async () => {
