@@ -113,7 +113,15 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
     const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const pending = useRef<{ key: string; body: CreateOrderRequest } | null>(null);
 
-    useEffect(() => () => clearTimeout(retryTimer.current), []);
+    const unmounted = useRef(false);
+
+    useEffect(() => {
+        unmounted.current = false;
+        return () => {
+            unmounted.current = true;
+            clearTimeout(retryTimer.current);
+        };
+    }, []);
 
     const { remaining, maxSeatsPerBuyer: max, ownedCount: owned } = availability;
     const limit = Math.max(0, Math.min(remaining, max - owned));
@@ -156,8 +164,13 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
             void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtime.id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
             void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(show.id)) });
-            navigate(`/orders/${order.token}`);
+            if (!unmounted.current) {
+                navigate(`/orders/${order.token}`);
+            }
         } catch (error) {
+            if (unmounted.current) {
+                return;
+            }
             if (isUnknownResult(error)) {
                 if (resendCount < RESEND_DELAYS_MS.length) {
                     setPhase({ kind: 'resending' });

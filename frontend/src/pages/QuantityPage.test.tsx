@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { IDEMPOTENCY_HEADER } from '../api/queries';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
@@ -154,6 +154,27 @@ describe('수량 선택', () => {
         expect(sentKeys).toHaveLength(2);
         expect(sentKeys[1]).toBe(sentKeys[0]);
     });
+
+    it.each([
+        ['판매 전 응답', () => HttpResponse.json({ status: 409, code: 'SALES_NOT_OPEN' }, { status: 409 })],
+        ['응답 유실', () => HttpResponse.error()],
+    ])('선점 응답(%s)이 오기 전에 화면을 떠나면 다시 보내지 않는다', async (_, reply) => {
+        server.use(
+            http.post('/api/orders', async () => {
+                await delay(300);
+                return reply();
+            }),
+        );
+        const { router } = renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        await pick(1);
+        hold(1);
+        await router.navigate('/me/orders');
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+
+        expect(sentKeys).toHaveLength(1);
+        expect(router.state.location.pathname).toBe('/me/orders');
+    }, 5_000);
 
     it('다시 보내는 동안 선점 버튼을 막고, 정해진 횟수 뒤에도 결과를 모르면 예매 내역에서 확인하게 한다', async () => {
         renderRoute(PATH, { scenario: 'hold-lost-always', loggedIn: true, prepare: withoutOwnHold });
