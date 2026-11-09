@@ -420,3 +420,52 @@ X-XSRF-TOKEN: 4b1c...
 | 결과를 모를 때 다시 보내기 | 최대 2번, 1초·2초 뒤 |
 | 판매 전 응답 뒤 자동 재시도 | 1.5초 간격, 최대 5번, 매번 새 식별자 |
 | 서버가 결과를 기억하는 기간 | 24시간 |
+
+## 9. 기능 명세와의 대조
+
+[기능 명세](booking-flow.md) 8절 "화면마다 필요한 데이터" 표의 항목이 어느 응답에 있는지 적었다.
+
+| 화면 | 필요한 데이터 | API와 필드 |
+|---|---|---|
+| 공연 페이지 | 공연 제목·장소 | `GET /api/performances/{id}`의 `title`, `venue` |
+| 공연 페이지 | 회차 목록(공연 시작·종료, 판매 시작·마감, 좌석 종류, 판매 상태, 남은 수, 1인 최대 좌석 수) | 같은 응답의 `showtimes[]` |
+| 공연 페이지 | 서버 현재 시각 | `serverTime` |
+| 모든 화면 | 로그인 상태, 닉네임 | `GET /api/me`의 상태 코드와 `nickname` |
+| 수량 선택 | 남은 수, 이 회차에서 이미 가진 수 | `GET /api/showtimes/{id}/availability`의 `remaining`, `ownedCount` |
+| 내 주문 | 주문 목록 | `GET /api/me/orders`의 `orders` |
+| 주문 | 주문 상태, 입장번호, 회차 정보, 선점 기한, 서버 현재 시각, 주문 토큰, 보는 사람이 주문을 만든 구매자인지 | 주문 응답의 `status`, `entryNumbers`, `showtime`, `heldUntil`, `serverTime`, `token`, `isOwner` |
+
+기능 명세 6절과 7절의 실패 상황은 2절 공통 실패와 7절 표에 모두 있다. 6절의 `403 ORDER_NOT_OWNED`는 7절 결정대로 `404`로 바뀌었다.
+
+## 10. 지금 구현된 API와 달라지는 점
+
+| 구분 | 지금 | 바뀐 뒤 | 구현하는 이슈 |
+|---|---|---|---|
+| 바뀜 | `POST /api/orders` 본문에 `userId`, `seatIds` | 로그인 세션으로 구매자를 알아낸다. 본문은 `showtimeId`, `quantity` 또는 `seatIds`, `buyerName`. `Idempotency-Key` 헤더 | 카카오 로그인, 자유석 자동 배정 |
+| 바뀜 | 선점 응답 `orderId`, `showtimeId`, `status`, `heldUntil`, `seatIds` | 6절의 주문 응답 | 자유석 자동 배정 |
+| 바뀜 | `POST /api/orders/{orderId}/confirm`, 본문에 `userId` | `POST /api/orders/{token}/confirm`, 본문 없음, 로그인 | 카카오 로그인 |
+| 바뀜 | 다른 구매자의 주문 확정은 `403 ORDER_NOT_OWNED` | `404` | 카카오 로그인 |
+| 바뀜 | 실패 응답에 `serverTime` 없음 | 모든 JSON 응답에 `serverTime` | 공연 페이지 조회 |
+| 새로 생김 | | `GET /api/me`, `POST /api/logout`, 카카오 로그인 이동 | 카카오 로그인 |
+| 새로 생김 | | `GET /api/orders/{token}`, `GET /api/me/orders` | 카카오 로그인 |
+| 새로 생김 | | `POST /api/orders/{token}/cancel` | 선점 취소 |
+| 새로 생김 | | `GET /api/performances/{id}`, `GET /api/showtimes/{id}/availability` | 공연 페이지 조회 |
+| 새로 생김 | | `SALES_CLOSED` | 판매 마감 |
+| 새로 생김 | | `ORDER_CANCELLED`, `ORDER_CONFIRMED` | 선점 취소 |
+| 새로 생김 | | `IDEMPOTENCY_KEY_REUSED` | 자유석 자동 배정 |
+| 없어짐 | 요청 본문의 `userId` | | 카카오 로그인 |
+| 없어짐 | `ORDER_NOT_OWNED` | | 카카오 로그인 |
+| 유지 | `GET /api/showtimes/{showtimeId}/seats` | 지정석 좌석 배치(P3)와 함께 바꾼다 | |
+
+### 구매자 화면(`frontend/`)과 다른 점
+
+구매자 화면은 이 명세보다 먼저 목 API로 만들었다. 화면을 이 명세에 맞추는 작업은 따로 한다.
+
+| 화면의 지금 | 이 명세 |
+|---|---|
+| `/api/shows/{id}`, 응답의 `show` | `/api/performances/{id}`, 응답의 `performance` |
+| `GET /api/me`에 `nickname`만 | `buyerId` 추가 |
+| 목 로그인(`/api/auth/mock-login`) | `/oauth2/authorization/kakao` 이동, `POST /api/logout` |
+| CSRF 헤더 없음 | `POST`에 `X-XSRF-TOKEN` |
+| 선점 요청 식별자를 메모리에만 둠 | `sessionStorage`에 보관, `401` 뒤와 새로고침 뒤 같은 식별자로 결과 확인 |
+| 기한 지난 `HELD`를 화면이 `EXPIRED`로 봄 | 서버가 `EXPIRED`로 준다. 화면의 판단은 그대로 둬도 결과가 같다 |
