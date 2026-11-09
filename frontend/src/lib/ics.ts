@@ -12,7 +12,7 @@ type CalendarEvent = {
 const toIcsTime = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
 const escapeText = (value: string) =>
-    value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\;');
+    value.replace(/\\/g, '\\\\').replace(/\r\n|\r|\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
 
 function fold(line: string) {
     const bytes = new TextEncoder().encode(line);
