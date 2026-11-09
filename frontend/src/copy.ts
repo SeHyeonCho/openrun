@@ -195,7 +195,6 @@ export const copy = {
             cancelNoResponse: '취소가 됐는지 알 수 없어요. 다시 눌러도 같은 결과예요.',
         },
         toast: {
-            shared: '공유 창을 열었어요.',
             copied: '예매 링크를 복사했어요.',
             copyFailed: '링크를 복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.',
             saved: '티켓 이미지를 저장했어요.',
