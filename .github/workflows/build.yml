@@ -35,6 +35,25 @@ jobs:
       - name: 빌드와 테스트
         run: ./gradlew build
 
+      - name: Node 24 설치
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 화면 의존성 설치
+        working-directory: frontend
+        run: npm ci
+
+      - name: 화면 테스트
+        working-directory: frontend
+        run: npm test
+
+      - name: 화면 타입 검사와 빌드
+        working-directory: frontend
+        run: npm run build
+
       - name: 실패 시 테스트 리포트 업로드
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -1,0 +1,73 @@
+.t-display-title {
+    font-family: var(--font-display);
+    font-size: 36px;
+    line-height: 0.95;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+}
+
+.t-wordmark {
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.t-numeral-timer {
+    font-family: var(--font-display);
+    font-size: 76px;
+    line-height: 0.9;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.t-numeral {
+    font-family: var(--font-display);
+    font-size: 40px;
+    line-height: 1;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+.t-data {
+    font-family: var(--font-display);
+    font-size: 15px;
+    line-height: 1.3;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+.t-title {
+    font-size: 28px;
+    line-height: 1.3;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.t-heading {
+    font-size: 18px;
+    line-height: 1.4;
+    font-weight: 700;
+}
+
+.t-body {
+    font-size: 15px;
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+.t-label {
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 600;
+}
+
+.t-caption {
+    font-size: 13px;
+    line-height: 1.6;
+    font-weight: 400;
+    color: var(--color-ink-muted);
+}
