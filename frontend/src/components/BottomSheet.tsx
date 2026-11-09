@@ -10,27 +10,46 @@ type BottomSheetProps = {
 
 export function BottomSheet({ title, onClose, children, actions }: BottomSheetProps) {
     const titleId = useId();
-    const sheet = useRef<HTMLElement>(null);
+    const dialog = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
+        const sheet = dialog.current;
+        if (!sheet) {
+            return undefined;
+        }
         const previous = document.activeElement as HTMLElement | null;
-        sheet.current?.querySelector<HTMLElement>('button, a[href]')?.focus();
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                onClose();
-            }
+        if (typeof sheet.showModal === 'function') {
+            sheet.showModal();
+        } else {
+            sheet.setAttribute('open', '');
+        }
+        sheet.querySelector<HTMLElement>('button, a[href]')?.focus();
+        const onCancel = (event: Event) => {
+            event.preventDefault();
+            onClose();
         };
-        document.addEventListener('keydown', onKey);
+        sheet.addEventListener('cancel', onCancel);
         return () => {
-            document.removeEventListener('keydown', onKey);
+            sheet.removeEventListener('cancel', onCancel);
+            if (sheet.open && typeof sheet.close === 'function') {
+                sheet.close();
+            }
             previous?.focus();
         };
     }, [onClose]);
 
     return (
-        <>
-            <div className={styles.scrim} aria-hidden="true" onClick={onClose} />
-            <section ref={sheet} className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <dialog
+            ref={dialog}
+            className={styles.sheet}
+            aria-labelledby={titleId}
+            onClick={(event) => {
+                if (event.target === event.currentTarget) {
+                    onClose();
+                }
+            }}
+        >
+            <div className={styles.panel}>
                 <div className={styles.handle} aria-hidden="true" />
                 <div className={styles.content}>
                     <h2 id={titleId} className="t-heading">
@@ -39,7 +58,7 @@ export function BottomSheet({ title, onClose, children, actions }: BottomSheetPr
                     {children}
                 </div>
                 <div className={styles.actions}>{actions}</div>
-            </section>
-        </>
+            </div>
+        </dialog>
     );
 }

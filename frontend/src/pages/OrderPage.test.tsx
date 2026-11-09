@@ -52,6 +52,28 @@ describe('주문 화면', () => {
         expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/shows/1/showtimes/12/quantity');
     });
 
+    it('취소 확인 시트는 모달 대화상자로 열고, Esc로 닫으면 예매를 그대로 둔다', async () => {
+        const showModal = vi.fn(function (this: HTMLDialogElement) {
+            this.setAttribute('open', '');
+        });
+        Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { value: showModal, configurable: true });
+        try {
+            renderRoute('/orders/held-demo', { loggedIn: true });
+
+            fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
+            const sheet = screen.getByRole('dialog', { name: '예매를 취소할까요?' });
+            expect(sheet.tagName).toBe('DIALOG');
+            expect(showModal).toHaveBeenCalledTimes(1);
+
+            fireEvent(sheet, new Event('cancel', { cancelable: true }));
+
+            expect(screen.queryByRole('dialog')).toBeNull();
+            expect(screen.getByRole('timer')).toBeTruthy();
+        } finally {
+            delete (HTMLDialogElement.prototype as { showModal?: unknown }).showModal;
+        }
+    });
+
     it('예매를 취소하고 공연 페이지로 돌아가면 풀린 잔여석을 바로 보여 준다', async () => {
         const { router } = renderRoute('/shows/1', { loggedIn: true });
         fireEvent.click(await screen.findByRole('button', { name: /12\.05 SAT 19:00–21:30/ }));
