@@ -80,6 +80,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         queryClient.setQueryData(queryKeys.order(next.token), next);
         void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
         void queryClient.invalidateQueries({ queryKey: queryKeys.availability(next.showtime.id) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(next.show.id)) });
     };
 
     const handleFailure = async (error: unknown, action: 'confirm' | 'cancel') => {

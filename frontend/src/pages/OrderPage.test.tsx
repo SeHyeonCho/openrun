@@ -52,6 +52,21 @@ describe('주문 화면', () => {
         expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/shows/1/showtimes/12/quantity');
     });
 
+    it('예매를 취소하고 공연 페이지로 돌아가면 풀린 잔여석을 바로 보여 준다', async () => {
+        const { router } = renderRoute('/shows/1', { loggedIn: true });
+        fireEvent.click(await screen.findByRole('button', { name: /12\.05 SAT 19:00–21:30/ }));
+        expect(screen.getByText(/잔여 50석/)).toBeTruthy();
+
+        await router.navigate('/orders/held-demo');
+        fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
+        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '예매 취소' }));
+        await screen.findByRole('heading', { name: '예매를 취소했어요' });
+
+        await router.navigate('/shows/1');
+        fireEvent.click(await screen.findByRole('button', { name: /12\.05 SAT 19:00–21:30/ }));
+        expect(await screen.findByText(/잔여 52석/)).toBeTruthy();
+    });
+
     it('남은 시간이 0이 되면 기한 지남 화면으로 바뀐다', async () => {
         renderRoute('/orders/held-demo', { loggedIn: true, prepare: heldUntil(1_200) });
 
