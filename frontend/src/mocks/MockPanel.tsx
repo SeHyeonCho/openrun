@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { api } from '../api/queries';
 import styles from './MockPanel.module.css';
 import { currentScenario, isMockLoggedIn, scenarios } from './scenarios';
@@ -17,7 +16,7 @@ const shortcuts = [
 
 export function MockPanel() {
     const scenario = currentScenario();
-    const [loggedIn, setLoggedIn] = useState(isMockLoggedIn);
+    const loggedIn = isMockLoggedIn();
     const label = scenarios.find((s) => s.id === scenario)?.label;
 
     const changeScenario = (id: string) => {
@@ -26,14 +25,8 @@ export function MockPanel() {
         window.location.assign(url);
     };
 
-    const toggleLogin = async () => {
-        if (loggedIn) {
-            await api.logout();
-        } else {
-            await api.mockLogin();
-        }
-        setLoggedIn(!loggedIn);
-        window.location.reload();
+    const toggleLogin = () => {
+        (loggedIn ? api.logout() : api.mockLogin()).catch(() => undefined).finally(() => window.location.reload());
     };
 
     return (
