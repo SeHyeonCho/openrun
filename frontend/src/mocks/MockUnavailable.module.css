@@ -1,0 +1,19 @@
+.notice {
+    max-width: var(--size-page-max);
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-16);
+    background: var(--color-ink);
+    color: var(--color-on-primary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.tag {
+    display: inline-block;
+    margin-right: var(--space-8);
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-weight: 700;
+}
