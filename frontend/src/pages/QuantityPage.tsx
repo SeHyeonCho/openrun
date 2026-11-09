@@ -131,6 +131,7 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
         const fresh = await queryClient.fetchQuery({
             queryKey: queryKeys.availability(showtime.id),
             queryFn: () => api.getAvailability(showtime.id),
+            staleTime: 0,
         });
         const freshLimit = Math.max(0, Math.min(fresh.remaining, fresh.maxSeatsPerBuyer - fresh.ownedCount));
         if (freshLimit < chosen) {
