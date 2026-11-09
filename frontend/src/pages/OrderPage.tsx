@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toPng } from 'html-to-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router';
-import { isApiError, isNotFound, isUnauthorized, NoResponseError } from '../api/client';
+import { isApiError, isNotFound, isUnauthorized, isUnknownResult, NoResponseError, RESEND_DELAYS_MS } from '../api/client';
 import { api, queryKeys, useMe, useOrder } from '../api/queries';
 import type { OrderResponse } from '../api/types';
 import { useLogin } from '../auth/useLogin';
@@ -61,8 +61,16 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     const loggedOut = useMe().data === null;
     const [rejectedAs, setRejectedAs] = useState<OrderView | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
-    const [busy, setBusy] = useState<'confirm' | 'cancel' | 'image' | null>(null);
+    const [busy, setBusy] = useState<'confirm' | 'confirmResend' | 'cancel' | 'image' | null>(null);
     const ticketRef = useRef<HTMLElement>(null);
+    const unmounted = useRef(false);
+
+    useEffect(() => {
+        unmounted.current = false;
+        return () => {
+            unmounted.current = true;
+        };
+    }, []);
 
     const derived = orderViewOf(order, serverNow());
     const view: OrderView = derived === 'held' && rejectedAs ? rejectedAs : derived;
@@ -83,9 +91,9 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(next.show.id)) });
     };
 
-    const handleFailure = async (error: unknown, action: 'confirm' | 'cancel') => {
+    const handleFailure = async (error: unknown) => {
         if (error instanceof NoResponseError) {
-            toast(action === 'confirm' ? text.problem.confirmNoResponse : text.problem.cancelNoResponse);
+            toast(text.problem.cancelNoResponse);
             return;
         }
         if (isUnauthorized(error)) {
@@ -109,11 +117,34 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     const confirm = async () => {
         setBusy('confirm');
         try {
-            applyOrder(await api.confirmOrder(order.token));
-        } catch (error) {
-            await handleFailure(error, 'confirm');
+            for (let resendCount = 0; ; resendCount++) {
+                try {
+                    applyOrder(await api.confirmOrder(order.token));
+                    return;
+                } catch (error) {
+                    if (unmounted.current) {
+                        return;
+                    }
+                    if (!isUnknownResult(error)) {
+                        await handleFailure(error);
+                        return;
+                    }
+                    if (resendCount >= RESEND_DELAYS_MS.length) {
+                        toast(text.problem.confirmUnknown);
+                        refetch();
+                        return;
+                    }
+                    setBusy('confirmResend');
+                    await new Promise((resolve) => setTimeout(resolve, RESEND_DELAYS_MS[resendCount] ?? 0));
+                    if (unmounted.current) {
+                        return;
+                    }
+                }
+            }
         } finally {
-            setBusy(null);
+            if (!unmounted.current) {
+                setBusy(null);
+            }
         }
     };
 
@@ -124,7 +155,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
             setSheetOpen(false);
         } catch (error) {
             setSheetOpen(false);
-            await handleFailure(error, 'cancel');
+            await handleFailure(error);
         } finally {
             setBusy(null);
         }
@@ -214,7 +245,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
                 bottomBar={
                     <BottomBar>
                         <Button onClick={() => void confirm()} disabled={busy !== null}>
-                            {busy === 'confirm' ? text.held.confirming : text.held.confirm}
+                            {busy === 'confirm' ? text.held.confirming : busy === 'confirmResend' ? text.held.resending : text.held.confirm}
                         </Button>
                         <div className={styles.pair}>
                             <Button variant="secondary" onClick={() => setSheetOpen(true)} disabled={busy !== null}>

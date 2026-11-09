@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { ApiError, isApiError, isNotFound, isUnauthorized, NoResponseError } from '../api/client';
+import { isApiError, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
 import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, useShow } from '../api/queries';
 import type { AvailabilityResponse, CreateOrderRequest, MeResponse, ShowResponse, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
@@ -24,11 +24,7 @@ import styles from './QuantityPage.module.css';
 
 const NOT_OPEN_RETRY_MS = 1_500;
 const NOT_OPEN_MAX_RETRIES = 5;
-const RESEND_DELAYS_MS = [1_000, 2_000];
-
 type Phase = { kind: 'idle' } | { kind: 'holding' } | { kind: 'waitingOpen' } | { kind: 'resending' } | { kind: 'unknown' } | { kind: 'closed' };
-
-const isUnknownResult = (error: unknown) => error instanceof NoResponseError || (error instanceof ApiError && error.status >= 500);
 
 export function QuantityPage() {
     const { showId = '', showtimeId = '' } = useParams();

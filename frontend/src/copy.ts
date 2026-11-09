@@ -145,6 +145,7 @@ export const copy = {
             qrNote: '예매를 확정하면 입장용 QR이 선명해져요.',
             confirm: '예매 확정',
             confirming: '확정하는 중',
+            resending: '결과를 확인하는 중',
             cancel: '예매 취소',
             share: '공유하기',
         },
@@ -190,7 +191,7 @@ export const copy = {
             ORDER_EXPIRED: '예매 가능 시간이 지났어요.',
             ORDER_CANCELLED: '이미 취소한 예매예요.',
             ORDER_CONFIRMED: '이미 완료한 예매라 여기서 취소할 수 없어요.',
-            confirmNoResponse: '확정이 됐는지 알 수 없어요. 다시 눌러도 같은 결과예요.',
+            confirmUnknown: '확정 결과를 확인하지 못했어요. 예매 내역에서 확인해 주세요.',
             cancelNoResponse: '취소가 됐는지 알 수 없어요. 다시 눌러도 같은 결과예요.',
         },
         toast: {

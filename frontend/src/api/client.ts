@@ -31,6 +31,10 @@ export const isUnauthorized = (error: unknown) => error instanceof ApiError && e
 
 export const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
 
+export const isUnknownResult = (error: unknown) => error instanceof NoResponseError || (error instanceof ApiError && error.status >= 500);
+
+export const RESEND_DELAYS_MS = [1_000, 2_000];
+
 function abortedBy(signal: AbortSignal): Promise<never> {
     const aborted = new Promise<never>((_, reject) => {
         signal.addEventListener('abort', () => reject(signal.reason), { once: true });
