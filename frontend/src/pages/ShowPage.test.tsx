@@ -66,6 +66,20 @@ describe('공연 페이지', () => {
         expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
     });
 
+    it('로그인 상태를 불러오지 못해도 예매 버튼은 열어 두고, 매수 선택 화면에서 로그인 상태를 다시 확인하게 한다', async () => {
+        server.use(http.get('/api/me', () => HttpResponse.json({ status: 500 }, { status: 500 })));
+        const { router } = renderRoute('/shows/1', { loggedIn: true });
+        await screen.findByRole('heading', { name: '로그인 상태를 확인하지 못했어요' });
+
+        fireEvent.click(screen.getByRole('button', { name: /12\.05 SAT 19:00–21:30/ }));
+        fireEvent.click(screen.getByRole('button', { name: '예매하기' }));
+
+        await waitFor(() => expect(router.state.location.pathname).toBe('/shows/1/showtimes/12/quantity'));
+        expect(await screen.findByRole('heading', { name: '정보를 불러오지 못했어요' })).toBeTruthy();
+        expect(screen.queryByRole('button', { name: '카카오 로그인' })).toBeNull();
+        expect(screen.queryByRole('button', { name: /매 선택 완료/ })).toBeNull();
+    });
+
     it('없는 공연이면 공연을 찾을 수 없다고 알린다', async () => {
         renderRoute('/shows/999');
 
