@@ -159,7 +159,7 @@ describe('주문 화면', () => {
         renderRoute('/orders/held-demo');
 
         expect(await screen.findByRole('heading', { name: '공유받은 예매예요' })).toBeTruthy();
-        fireEvent.click(screen.getByRole('button', { name: '카카오 로그인' }));
+        fireEvent.click(await screen.findByRole('button', { name: '카카오 로그인' }));
 
         expect(await screen.findByRole('button', { name: '예매 확정' })).toBeTruthy();
     });
