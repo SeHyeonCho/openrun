@@ -166,8 +166,6 @@ export const copy = {
         },
         expired: {
             title: '예매 가능 시간이 지났어요',
-            body: (at: string, numbers: number[]) => `${at}까지 확정하지 않아 입장번호 ${numbersWith(numbers, ['이', '가'])} 다시 풀렸어요.`,
-            caption: '다시 고르면 남은 번호 가운데 앞 번호부터 새로 배정돼요.',
             retry: '다시 고르기',
         },
         cancelled: {

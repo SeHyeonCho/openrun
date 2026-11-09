@@ -94,7 +94,9 @@ describe('주문 화면', () => {
 
         expect(await screen.findByRole('timer')).toBeTruthy();
         expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' }, { timeout: 3_000 })).toBeTruthy();
-        expect(screen.getByText(/입장번호 37 · 38이 다시 풀렸어요/)).toBeTruthy();
+        expect(screen.getByText('시간 만료')).toBeTruthy();
+        expect(screen.queryByText(/풀렸어요/)).toBeNull();
+        expect(screen.getByRole('link', { name: '다시 고르기' })).toBeTruthy();
     });
 
     it('기한이 지난 선점 주문은 상태가 HELD여도 기한 지남으로 보여 준다', async () => {
