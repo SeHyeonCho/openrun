@@ -24,7 +24,7 @@ import {
     type MockDb,
     type MockOrder,
 } from './db';
-import { isMockLoggedIn, setMockLoggedIn } from './scenarios';
+import { currentScenario, isMockLoggedIn, setMockLoggedIn } from './scenarios';
 
 const titles: Record<number, string> = {
     400: 'Bad Request',
@@ -40,12 +40,10 @@ function problem(status: number, code?: ProblemCode, detail?: string) {
     );
 }
 
-async function open() {
-    const db = loadDb();
-    if (db.scenario === 'slow') {
+async function slowDown() {
+    if (currentScenario() === 'slow') {
         await delay(2000);
     }
-    return db;
 }
 
 function firstTime(db: MockDb, key: string) {
@@ -82,19 +80,19 @@ function findOwnOrder(db: MockDb, token: string) {
 
 export const handlers = [
     http.post('/api/auth/mock-login', async () => {
-        await open();
+        await slowDown();
         setMockLoggedIn(true);
         return HttpResponse.json<MeResponse>({ nickname: MOCK_USER.nickname });
     }),
 
     http.post('/api/auth/logout', async () => {
-        await open();
+        await slowDown();
         setMockLoggedIn(false);
         return new HttpResponse(null, { status: 204 });
     }),
 
     http.get('/api/me', async () => {
-        await open();
+        await slowDown();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
@@ -102,7 +100,8 @@ export const handlers = [
     }),
 
     http.get('/api/shows/:showId', async ({ params }) => {
-        const db = await open();
+        await slowDown();
+        const db = loadDb();
         const show = db.shows.find((s) => String(s.id) === params.showId);
         if (!show) {
             return problem(404);
@@ -133,7 +132,8 @@ export const handlers = [
     }),
 
     http.get('/api/showtimes/:showtimeId/availability', async ({ params }) => {
-        const db = await open();
+        await slowDown();
+        const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
@@ -153,11 +153,12 @@ export const handlers = [
     }),
 
     http.post('/api/orders', async ({ request }) => {
-        const db = await open();
+        const body = ((await request.json().catch(() => null)) ?? {}) as Partial<CreateOrderRequest>;
+        await slowDown();
+        const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
-        const body = (await request.json()) as Partial<CreateOrderRequest>;
         const quantity = Number(body.quantity);
         const buyerName = String(body.buyerName ?? '').trim();
         if (!Number.isInteger(quantity) || quantity < 1 || buyerName === '') {
@@ -241,7 +242,8 @@ export const handlers = [
     }),
 
     http.get('/api/orders/:token', async ({ params }) => {
-        const db = await open();
+        await slowDown();
+        const db = loadDb();
         const order = db.orders.find((o) => o.token === params.token);
         if (!order) {
             return problem(404);
@@ -250,7 +252,8 @@ export const handlers = [
     }),
 
     http.post('/api/orders/:token/confirm', async ({ params }) => {
-        const db = await open();
+        await slowDown();
+        const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
@@ -283,7 +286,8 @@ export const handlers = [
     }),
 
     http.post('/api/orders/:token/cancel', async ({ params }) => {
-        const db = await open();
+        await slowDown();
+        const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
@@ -309,7 +313,8 @@ export const handlers = [
     }),
 
     http.get('/api/me/orders', async () => {
-        const db = await open();
+        await slowDown();
+        const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
