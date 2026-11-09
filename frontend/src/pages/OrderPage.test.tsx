@@ -5,8 +5,10 @@ import type { MockDb } from '../mocks/db';
 import { disabled, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
-const heldUntil = (ms: number) => (db: MockDb) => {
-    db.orders.find((o) => o.token === 'held-demo')!.heldUntil = new Date(Date.now() + ms).toISOString();
+const SKEW_MS = 3 * 60_000;
+
+const heldUntil = (ms: number, skewMs = 0) => (db: MockDb) => {
+    db.orders.find((o) => o.token === 'held-demo')!.heldUntil = new Date(Date.now() + skewMs + ms).toISOString();
 };
 
 const queryButton = (name: string) => screen.queryByRole('button', { name });
@@ -107,6 +109,13 @@ describe('주문 화면', () => {
         expect(screen.getByText('시간 만료')).toBeTruthy();
         expect(screen.queryByText(/풀렸어요/)).toBeNull();
         expect(screen.getByRole('link', { name: '다시 고르기' })).toBeTruthy();
+    });
+
+    it('서버 시계가 기기보다 빨라도 서버 시각 기준으로 확정까지 남은 시간을 세고, 기한에 시간 만료로 바꾼다', async () => {
+        renderRoute('/orders/held-demo', { scenario: 'clock-skew', loggedIn: true, prepare: heldUntil(1_200, SKEW_MS) });
+
+        expect((await screen.findByRole('timer')).textContent).toMatch(/^00:0[012]$/);
+        expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' }, { timeout: 3_000 })).toBeTruthy();
     });
 
     it('기한이 지난 선점 주문은 상태가 HELD여도 기한 지남으로 보여 준다', async () => {
