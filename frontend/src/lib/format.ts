@@ -35,6 +35,9 @@ export function formatShowtime(startsAt: string, endsAt: string, { year = false 
 }
 
 export function formatDateSpan(startsAts: string[]) {
+    if (startsAts.length === 0) {
+        return '';
+    }
     const sorted = [...startsAts].sort();
     const first = partsOf(sorted[0] ?? '');
     const last = partsOf(sorted[sorted.length - 1] ?? '');

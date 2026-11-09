@@ -157,11 +157,13 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
                 <div className={styles.info}>
                     <h1 className={`${styles.title} ${isLatinTitle(show.title) ? 't-display-title' : 't-title'}`}>{show.title}</h1>
                     <p className="t-body">{show.venue}</p>
-                    <p className="t-data">
-                        {single && show.showtimes[0]
-                            ? formatShowtime(show.showtimes[0].startsAt, show.showtimes[0].endsAt, { year: true })
-                            : formatDateSpan(show.showtimes.map((s) => s.startsAt))}
-                    </p>
+                    {show.showtimes.length > 0 && (
+                        <p className="t-data">
+                            {single && show.showtimes[0]
+                                ? formatShowtime(show.showtimes[0].startsAt, show.showtimes[0].endsAt, { year: true })
+                                : formatDateSpan(show.showtimes.map((s) => s.startsAt))}
+                        </p>
+                    )}
                     <p className="t-caption">
                         {[...new Set(show.showtimes.map((s) => copy.seatKind[s.seatKind]))].join(' · ')}
                         {single ? '' : ` · ${text.showtimeCount(show.showtimes.length)}`}
