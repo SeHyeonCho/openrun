@@ -1,15 +1,9 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadDb, saveDb, type MockDb } from '../mocks/db';
-import { disabled, renderRoute } from '../test/render';
+import { loadDb, saveDb } from '../mocks/db';
+import { disabled, holdDemoEndsIn, renderRoute } from '../test/render';
 import { server } from '../test/setup';
-
-const SKEW_MS = 3 * 60_000;
-
-const heldUntil = (ms: number, skewMs = 0) => (db: MockDb) => {
-    db.orders.find((o) => o.token === 'held-demo')!.heldUntil = new Date(Date.now() + skewMs + ms).toISOString();
-};
 
 const queryButton = (name: string) => screen.queryByRole('button', { name });
 
@@ -102,7 +96,7 @@ describe('주문 화면', () => {
     });
 
     it('남은 시간이 0이 되면 기한 지남 화면으로 바뀐다', async () => {
-        renderRoute('/orders/held-demo', { loggedIn: true, prepare: heldUntil(1_200) });
+        renderRoute('/orders/held-demo', { loggedIn: true, prepare: holdDemoEndsIn(1_200) });
 
         expect(await screen.findByRole('timer')).toBeTruthy();
         expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' }, { timeout: 3_000 })).toBeTruthy();
@@ -112,14 +106,14 @@ describe('주문 화면', () => {
     });
 
     it('서버 시계가 기기보다 빨라도 서버 시각 기준으로 확정까지 남은 시간을 세고, 기한에 시간 만료로 바꾼다', async () => {
-        renderRoute('/orders/held-demo', { scenario: 'clock-skew', loggedIn: true, prepare: heldUntil(1_200, SKEW_MS) });
+        renderRoute('/orders/held-demo', { scenario: 'clock-skew', loggedIn: true, prepare: holdDemoEndsIn(1_200) });
 
         expect((await screen.findByRole('timer')).textContent).toMatch(/^00:0[012]$/);
         expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' }, { timeout: 3_000 })).toBeTruthy();
     });
 
     it('기한이 지난 선점 주문은 상태가 HELD여도 기한 지남으로 보여 준다', async () => {
-        renderRoute('/orders/held-demo', { loggedIn: true, prepare: heldUntil(-1_000) });
+        renderRoute('/orders/held-demo', { loggedIn: true, prepare: holdDemoEndsIn(-1_000) });
 
         expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' })).toBeTruthy();
         expect(queryButton('예매 확정')).toBeNull();

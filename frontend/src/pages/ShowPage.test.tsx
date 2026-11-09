@@ -2,13 +2,10 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { isMockLoggedIn } from '../mocks/scenarios';
-import { disabled, renderRoute } from '../test/render';
+import { disabled, renderRoute, salesOpenIn } from '../test/render';
 import { server } from '../test/setup';
 
-const opensIn = (ms: number, skewMs = 0) => (db: { showtimes: { id: number; salesOpensAt: string }[] }) => {
-    const showtime = db.showtimes.find((s) => s.id === 21)!;
-    showtime.salesOpensAt = new Date(Date.now() + skewMs + ms).toISOString();
-};
+const opensIn = (ms: number) => salesOpenIn(21, ms);
 
 describe('공연 페이지', () => {
     it('회차가 하나면 처음부터 골라져 있고, 판매 시작 시각이 되면 새로고침 없이 예매 버튼이 열린다', async () => {
@@ -24,7 +21,7 @@ describe('공연 페이지', () => {
     });
 
     it('서버 시계가 기기보다 빨라도 서버 시각 기준으로 판매 시작까지 남은 시간을 센다', async () => {
-        renderRoute('/shows/2', { scenario: 'clock-skew', loggedIn: true, prepare: opensIn(2_000, 3 * 60_000) });
+        renderRoute('/shows/2', { scenario: 'clock-skew', loggedIn: true, prepare: opensIn(2_000) });
 
         const waiting = await screen.findByRole('button', { name: /판매 시작까지/ });
         expect(waiting.textContent).toMatch(/00:0[12]$/);

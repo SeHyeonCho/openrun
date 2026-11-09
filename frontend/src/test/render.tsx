@@ -36,3 +36,13 @@ export function renderRoute(path: string, { scenario = 'default', loggedIn = fal
 }
 
 export const disabled = (element: HTMLElement) => (element as HTMLButtonElement).disabled;
+
+const fromServerNow = (db: MockDb, ms: number) => new Date(Date.now() + db.skewMs + ms).toISOString();
+
+export const holdDemoEndsIn = (ms: number) => (db: MockDb) => {
+    db.orders.find((o) => o.token === 'held-demo')!.heldUntil = fromServerNow(db, ms);
+};
+
+export const salesOpenIn = (showtimeId: number, ms: number) => (db: MockDb) => {
+    db.showtimes.find((s) => s.id === showtimeId)!.salesOpensAt = fromServerNow(db, ms);
+};
