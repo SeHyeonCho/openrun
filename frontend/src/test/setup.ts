@@ -6,7 +6,7 @@ import { handlers } from '../mocks/handlers';
 
 export const server = setupServer(...handlers);
 
-export const TEST_START = new Date('2026-11-10T12:00:00+09:00');
+const TEST_START = new Date('2026-11-10T12:00:00+09:00');
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 
