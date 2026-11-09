@@ -1,8 +1,15 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import type { MockDb } from '../mocks/db';
 import { renderRoute } from '../test/render';
 import { server } from '../test/setup';
+
+const SKEW_MS = 3 * 60_000;
+
+const heldFor = (ms: number, skewMs = 0) => (db: MockDb) => {
+    db.orders.find((o) => o.token === 'held-demo')!.heldUntil = new Date(Date.now() + skewMs + ms).toISOString();
+};
 
 describe('내 주문', () => {
     it('로그인한 구매자의 주문만 최근 순으로 공연, 회차, 수량, 상태와 함께 보여 준다', async () => {
@@ -22,6 +29,24 @@ describe('내 주문', () => {
         expect(within(expired!).getByText('시간 만료')).toBeTruthy();
         expect(within(cancelled!).getByText('취소')).toBeTruthy();
         expect(screen.queryByText(/39 · 40/)).toBeNull();
+    });
+
+    it('보고 있는 사이 확정 대기 예매의 기한이 지나면 시간 만료로 바꾼다', async () => {
+        renderRoute('/me/orders', { loggedIn: true, prepare: heldFor(1_200) });
+
+        const held = await screen.findByRole('link', { name: /37 · 38/ });
+        expect(within(held).getByText('확정 대기')).toBeTruthy();
+
+        await waitFor(() => expect(within(held).getByText('시간 만료')).toBeTruthy(), { timeout: 3_000 });
+    });
+
+    it('서버 시계가 기기보다 빨라도 서버 시각 기준으로 남은 시간을 세고 기한에 만료로 바꾼다', async () => {
+        renderRoute('/me/orders', { scenario: 'clock-skew', loggedIn: true, prepare: heldFor(1_200, SKEW_MS) });
+
+        const held = await screen.findByRole('link', { name: /37 · 38/ });
+        expect(within(held).getByText(/00:0[012] 남음/)).toBeTruthy();
+
+        await waitFor(() => expect(within(held).getByText('시간 만료')).toBeTruthy(), { timeout: 3_000 });
     });
 
     it('로그인하지 않았으면 로그인을 먼저 하게 하고, 로그인하면 목록을 보여 준다', async () => {
