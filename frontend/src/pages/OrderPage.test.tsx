@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadDb, saveDb } from '../mocks/db';
+import { orderView } from '../mocks/handlers';
 import { disabled, holdDemoEndsIn, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
@@ -114,6 +115,33 @@ describe('주문 화면', () => {
 
         expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' }, { timeout: 3_000 })).toBeTruthy();
     });
+
+    it('기한 직전에 보낸 확정이 기한 뒤에 응답해도, 그사이 다시 불러온 옛 상태로 확정 결과를 덮지 않는다', async () => {
+        renderRoute('/orders/held-demo', { loggedIn: true, prepare: holdDemoEndsIn(700) });
+        const confirm = await screen.findByRole('button', { name: '예매 확정' });
+        server.use(
+            http.get('/api/orders/:token', async ({ params }) => {
+                const db = loadDb();
+                const body = orderView(db, db.orders.find((o) => o.token === params.token)!);
+                await delay(1_500);
+                return HttpResponse.json(body);
+            }),
+            http.post('/api/orders/:token/confirm', async ({ params }) => {
+                await delay(1_000);
+                const db = loadDb();
+                const order = db.orders.find((o) => o.token === params.token)!;
+                order.status = 'CONFIRMED';
+                saveDb(db);
+                return HttpResponse.json(orderView(db, order));
+            }),
+        );
+
+        fireEvent.click(confirm);
+
+        expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' }, { timeout: 2_000 })).toBeTruthy();
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        expect(screen.getByRole('heading', { name: '예매가 완료됐어요' })).toBeTruthy();
+    }, 6_000);
 
     it('서버 시계가 기기보다 빨라도 서버 시각 기준으로 확정까지 남은 시간을 세고, 기한에 시간 만료로 바꾼다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'clock-skew', loggedIn: true, prepare: holdDemoEndsIn(1_200) });

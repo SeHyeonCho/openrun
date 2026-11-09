@@ -77,13 +77,16 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     const shownView: OrderView = derived === 'held' && rejectedAs ? rejectedAs : derived;
     const lapsed = order.status === 'HELD' && derived === 'expired';
 
+    const requesting = busy === 'confirm' || busy === 'confirmResend' || busy === 'cancel';
+
     useEffect(() => {
-        if (lapsed) {
+        if (lapsed && !requesting) {
             refetch();
         }
-    }, [lapsed, refetch]);
+    }, [lapsed, requesting, refetch]);
 
     const applyOrder = (next: OrderResponse) => {
+        void queryClient.cancelQueries({ queryKey: queryKeys.order(next.token) });
         queryClient.setQueryData(queryKeys.order(next.token), next);
         void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
         void queryClient.invalidateQueries({ queryKey: queryKeys.availability(next.showtime.id) });

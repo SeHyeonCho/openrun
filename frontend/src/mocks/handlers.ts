@@ -58,7 +58,7 @@ function firstTime(db: MockDb, key: string) {
 
 const serverTime = (db: MockDb) => new Date(mockNow(db)).toISOString();
 
-function orderView(db: MockDb, order: MockOrder): OrderResponse {
+export function orderView(db: MockDb, order: MockOrder): OrderResponse {
     const showtime = db.showtimes.find((s) => s.id === order.showtimeId)!;
     const show = db.shows.find((s) => s.id === showtime.showId)!;
     return {
