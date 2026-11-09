@@ -105,6 +105,16 @@ describe('주문 화면', () => {
         expect(screen.getByRole('link', { name: '다시 고르기' })).toBeTruthy();
     });
 
+    it('남은 시간이 0이 되면 주문을 다시 불러와, 다른 기기에서 이미 확정한 주문은 예매 완료로 보여 준다', async () => {
+        renderRoute('/orders/held-demo', { loggedIn: true, prepare: holdDemoEndsIn(700) });
+        await screen.findByRole('timer');
+        const db = loadDb();
+        db.orders.find((o) => o.token === 'held-demo')!.status = 'CONFIRMED';
+        saveDb(db);
+
+        expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' }, { timeout: 3_000 })).toBeTruthy();
+    });
+
     it('서버 시계가 기기보다 빨라도 서버 시각 기준으로 확정까지 남은 시간을 세고, 기한에 시간 만료로 바꾼다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'clock-skew', loggedIn: true, prepare: holdDemoEndsIn(1_200) });
 

@@ -72,17 +72,16 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         };
     }, []);
 
-    const derived = orderViewOf(order, serverNow());
-    const view: OrderView = derived === 'held' && rejectedAs ? rejectedAs : derived;
-    const now = useServerNow(view === 'held');
-    const timeUp = view === 'held' && msUntil(order.heldUntil, now) === 0;
-    const shownView: OrderView = timeUp ? 'expired' : view;
+    const now = useServerNow(order.status === 'HELD');
+    const derived = orderViewOf(order, now);
+    const shownView: OrderView = derived === 'held' && rejectedAs ? rejectedAs : derived;
+    const lapsed = order.status === 'HELD' && derived === 'expired';
 
     useEffect(() => {
-        if (timeUp) {
+        if (lapsed) {
             refetch();
         }
-    }, [timeUp, refetch]);
+    }, [lapsed, refetch]);
 
     const applyOrder = (next: OrderResponse) => {
         queryClient.setQueryData(queryKeys.order(next.token), next);
