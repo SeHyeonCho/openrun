@@ -1,4 +1,5 @@
 import { delay, http, HttpResponse } from 'msw';
+import { IDEMPOTENCY_HEADER } from '../api/queries';
 import type {
     AvailabilityResponse,
     CreateOrderRequest,
@@ -31,6 +32,7 @@ const titles: Record<number, string> = {
     401: 'Unauthorized',
     404: 'Not Found',
     409: 'Conflict',
+    422: 'Unprocessable Content',
 };
 
 function problem(status: number, code?: ProblemCode, detail?: string) {
@@ -154,13 +156,39 @@ export const handlers = [
 
     http.post('/api/orders', async ({ request }) => {
         const body = ((await request.json().catch(() => null)) ?? {}) as Partial<CreateOrderRequest>;
+        const key = request.headers.get(IDEMPOTENCY_HEADER);
         await slowDown();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
+        if (!key) {
+            return problem(400, undefined, '선점 요청에는 Idempotency-Key가 필요하다');
+        }
         const quantity = Number(body.quantity);
         const buyerName = String(body.buyerName ?? '').trim();
+        const fingerprint = JSON.stringify([body.showtimeId, quantity, buyerName]);
+        const recordKey = `${MOCK_USER.id}:${key}`;
+        const recorded = db.idempotency[recordKey];
+        if (recorded) {
+            if (recorded.fingerprint !== fingerprint) {
+                return problem(422, 'IDEMPOTENCY_KEY_REUSED');
+            }
+            if (db.scenario === 'hold-lost-always') {
+                return HttpResponse.error();
+            }
+            if (recorded.code) {
+                return problem(409, recorded.code);
+            }
+            const order = db.orders.find((o) => o.token === recorded.token)!;
+            return HttpResponse.json<OrderResponse>(orderView(db, order), { status: 201 });
+        }
+        const reject = (code: ProblemCode) => {
+            db.idempotency[recordKey] = { fingerprint, code };
+            saveDb(db);
+            return problem(409, code);
+        };
+
         if (!Number.isInteger(quantity) || quantity < 1 || buyerName === '') {
             return problem(400, undefined, '수량과 예매자 이름이 필요하다');
         }
@@ -171,8 +199,7 @@ export const handlers = [
         let now = mockNow(db);
 
         if (db.scenario === 'sales-not-open-once' && firstTime(db, 'hold')) {
-            saveDb(db);
-            return problem(409, 'SALES_NOT_OPEN');
+            return reject('SALES_NOT_OPEN');
         }
         if (db.scenario === 'sales-closed') {
             st.salesClosesAt = new Date(now).toISOString();
@@ -206,20 +233,16 @@ export const handlers = [
         now = mockNow(db);
         const status = salesStatusOf(db, st, now);
         if (status === 'BEFORE_SALE') {
-            saveDb(db);
-            return problem(409, 'SALES_NOT_OPEN');
+            return reject('SALES_NOT_OPEN');
         }
         if (status === 'SALES_CLOSED') {
-            saveDb(db);
-            return problem(409, 'SALES_CLOSED');
+            return reject('SALES_CLOSED');
         }
         if (ownedCountOf(db, st.id, MOCK_USER.id, now) + quantity > st.maxSeatsPerBuyer) {
-            saveDb(db);
-            return problem(409, 'SEAT_LIMIT_EXCEEDED');
+            return reject('SEAT_LIMIT_EXCEEDED');
         }
         if (remainingOf(db, st, now) < quantity) {
-            saveDb(db);
-            return problem(409, 'SEAT_NOT_AVAILABLE');
+            return reject('SEAT_NOT_AVAILABLE');
         }
 
         const order: MockOrder = {
@@ -233,9 +256,10 @@ export const handlers = [
             createdAt: new Date(now).toISOString(),
         };
         db.orders.push(order);
+        db.idempotency[recordKey] = { fingerprint, token: order.token };
+        const lost = (db.scenario === 'hold-lost-created' && firstTime(db, 'hold')) || db.scenario === 'hold-lost-always';
         saveDb(db);
-        if (db.scenario === 'hold-lost-created' && firstTime(db, 'hold')) {
-            saveDb(db);
+        if (lost) {
             return HttpResponse.error();
         }
         return HttpResponse.json<OrderResponse>(orderView(db, order), { status: 201 });

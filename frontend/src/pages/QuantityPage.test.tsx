@@ -1,9 +1,21 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import type { MockDb } from '../mocks/db';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it } from 'vitest';
+import { IDEMPOTENCY_HEADER } from '../api/queries';
+import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
 import { disabled, renderRoute } from '../test/render';
+import { server } from '../test/setup';
 
 const PATH = '/shows/1/showtimes/12/quantity';
+
+const sentKeys: (string | null)[] = [];
+server.events.on('request:start', ({ request }) => {
+    if (request.method === 'POST' && new URL(request.url).pathname === '/api/orders') {
+        sentKeys.push(request.headers.get(IDEMPOTENCY_HEADER));
+    }
+});
+
+const myHeldOrders = () => loadDb().orders.filter((o) => o.ownerId === MOCK_USER.id && o.showtimeId === 12 && o.status === 'HELD');
 
 const withoutOwnHold = (db: MockDb) => {
     db.orders.find((o) => o.token === 'held-demo')!.status = 'CANCELLED';
@@ -19,6 +31,10 @@ const pick = async (quantity: number) => {
 const hold = (quantity: number) => fireEvent.click(screen.getByRole('button', { name: `${quantity}매 선택 완료` }));
 
 describe('수량 선택', () => {
+    afterEach(() => {
+        sentKeys.length = 0;
+    });
+
     it('1인 최대 좌석 수에서 이미 가진 수를 뺀 만큼까지만 고를 수 있다', async () => {
         renderRoute(PATH, { loggedIn: true });
 
@@ -100,29 +116,59 @@ describe('수량 선택', () => {
 
         expect(await screen.findByText('아직 판매 전이에요. 잠시 뒤 다시 시도할게요.')).toBeTruthy();
         await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\//), { timeout: 4_000 });
+        expect(sentKeys).toHaveLength(2);
+        expect(sentKeys[0]).not.toBe(sentKeys[1]);
     });
 
-    it('선점 응답을 받지 못하면 다시 보내지 않고 내 주문에서 방금 주문을 먼저 찾는다', async () => {
-        renderRoute(PATH, { scenario: 'hold-lost-created', loggedIn: true });
+    it('선점 응답을 받지 못하면 같은 요청 식별자로 다시 보내, 서버가 이미 만든 주문을 받고 주문은 하나만 생긴다', async () => {
+        const { router } = renderRoute(PATH, { scenario: 'hold-lost-created', loggedIn: true, prepare: withoutOwnHold });
 
         await pick(1);
         hold(1);
 
-        expect(await screen.findByRole('heading', { name: '방금 예매를 찾았어요' })).toBeTruthy();
-        expect(screen.getByRole('link', { name: '예매 보기' }).getAttribute('href')).toMatch(/^\/orders\/[0-9a-f]{32}$/);
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/), { timeout: 3_000 });
+        expect(sentKeys).toHaveLength(2);
+        expect(sentKeys[1]).toBe(sentKeys[0]);
+        expect(myHeldOrders().map((o) => `/orders/${o.token}`)).toEqual([router.state.location.pathname]);
     });
 
-    it('선점 응답을 받지 못했고 주문도 없으면 그때 다시 선점하게 한다', async () => {
-        const { router } = renderRoute(PATH, { scenario: 'hold-lost-none', loggedIn: true });
+    it('선점 응답을 받지 못했고 서버도 주문을 만들지 않았으면, 같은 식별자로 다시 보낸 요청에서 주문이 생긴다', async () => {
+        const { router } = renderRoute(PATH, { scenario: 'hold-lost-none', loggedIn: true, prepare: withoutOwnHold });
 
         await pick(1);
         hold(1);
 
-        expect(await screen.findByRole('heading', { name: '예매가 만들어지지 않았어요' })).toBeTruthy();
-        fireEvent.click(screen.getByRole('button', { name: '1매 다시 선택 완료' }));
-
-        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\//));
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\//), { timeout: 3_000 });
+        expect(sentKeys[1]).toBe(sentKeys[0]);
+        expect(myHeldOrders()).toHaveLength(1);
     });
+
+    it('서버 오류(5xx)로 결과를 모르면 같은 식별자로 다시 보낸다', async () => {
+        server.use(http.post('/api/orders', () => HttpResponse.json({ status: 503 }, { status: 503 }), { once: true }));
+        const { router } = renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        await pick(1);
+        hold(1);
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\//), { timeout: 3_000 });
+        expect(sentKeys).toHaveLength(2);
+        expect(sentKeys[1]).toBe(sentKeys[0]);
+    });
+
+    it('다시 보내는 동안 선점 버튼을 막고, 정해진 횟수 뒤에도 결과를 모르면 예매 내역에서 확인하게 한다', async () => {
+        renderRoute(PATH, { scenario: 'hold-lost-always', loggedIn: true, prepare: withoutOwnHold });
+
+        await pick(1);
+        hold(1);
+
+        const resending = await screen.findByRole('button', { name: '결과를 확인하는 중' });
+        expect(disabled(resending)).toBe(true);
+        expect(await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' }, { timeout: 5_000 })).toBeTruthy();
+        expect(screen.getByRole('link', { name: '예매 내역에서 확인' }).getAttribute('href')).toBe('/me/orders');
+        expect(sentKeys).toHaveLength(3);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(myHeldOrders()).toHaveLength(1);
+    }, 10_000);
 
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
         renderRoute(PATH);

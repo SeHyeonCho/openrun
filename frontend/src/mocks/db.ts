@@ -1,4 +1,4 @@
-import type { OrderStatus, SalesStatus } from '../api/types';
+import type { OrderStatus, ProblemCode, SalesStatus } from '../api/types';
 import { currentScenario, type ScenarioId } from './scenarios';
 
 export const MOCK_USER = { id: 'kakao-mock-me', nickname: '밤산책' };
@@ -43,9 +43,16 @@ export interface MockDb {
     showtimes: MockShowtime[];
     orders: MockOrder[];
     once: Record<string, boolean>;
+    idempotency: Record<string, IdempotencyRecord>;
 }
 
-const DB_KEY = 'openrun.mock.db';
+export interface IdempotencyRecord {
+    fingerprint: string;
+    token?: string;
+    code?: ProblemCode;
+}
+
+const DB_KEY = 'openrun.mock.db.v2';
 const MINUTE = 60_000;
 
 const kst = (local: string) => new Date(`${local}:00+09:00`).toISOString();
@@ -189,6 +196,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             },
         ],
         once: {},
+        idempotency: {},
     };
 }
 

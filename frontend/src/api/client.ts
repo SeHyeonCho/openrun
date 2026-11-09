@@ -48,7 +48,9 @@ async function readProblem(response: Response, aborted: Promise<never>): Promise
     }
 }
 
-export async function request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+type RequestInit = { method?: string; body?: unknown; headers?: Record<string, string> };
+
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     const aborted = abortedBy(controller.signal);
@@ -59,7 +61,11 @@ export async function request<T>(path: string, init: { method?: string; body?: u
             response = await fetch(new URL(`/api${path}`, window.location.href), {
                 method: init.method ?? 'GET',
                 credentials: 'include',
-                headers: init.body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
+                headers: {
+                    Accept: 'application/json',
+                    ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+                    ...init.headers,
+                },
                 body: init.body === undefined ? undefined : JSON.stringify(init.body),
                 signal: controller.signal,
             });

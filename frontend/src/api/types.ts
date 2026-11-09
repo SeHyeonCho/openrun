@@ -15,7 +15,8 @@ export type ProblemCode =
     | 'ORDER_EXPIRED'
     | 'ORDER_NOT_OWNED'
     | 'ORDER_CANCELLED'
-    | 'ORDER_CONFIRMED';
+    | 'ORDER_CONFIRMED'
+    | 'IDEMPOTENCY_KEY_REUSED';
 
 export interface ProblemDetail {
     type?: string;

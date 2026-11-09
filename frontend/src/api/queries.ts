@@ -9,6 +9,10 @@ import type {
     ShowResponse,
 } from './types';
 
+export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+
+export const newIdempotencyKey = () => crypto.randomUUID();
+
 export const queryKeys = {
     me: ['me'] as const,
     show: (showId: string) => ['show', showId] as const,
@@ -23,7 +27,8 @@ export const api = {
     logout: () => request<void>('/auth/logout', { method: 'POST' }),
     getShow: (showId: string) => request<ShowResponse>(`/shows/${encodeURIComponent(showId)}`),
     getAvailability: (showtimeId: number) => request<AvailabilityResponse>(`/showtimes/${showtimeId}/availability`),
-    createOrder: (body: CreateOrderRequest) => request<OrderResponse>('/orders', { method: 'POST', body }),
+    createOrder: (body: CreateOrderRequest, idempotencyKey: string) =>
+        request<OrderResponse>('/orders', { method: 'POST', body, headers: { [IDEMPOTENCY_HEADER]: idempotencyKey } }),
     getOrder: (token: string) => request<OrderResponse>(`/orders/${encodeURIComponent(token)}`),
     confirmOrder: (token: string) => request<OrderResponse>(`/orders/${encodeURIComponent(token)}/confirm`, { method: 'POST' }),
     cancelOrder: (token: string) => request<OrderResponse>(`/orders/${encodeURIComponent(token)}/cancel`, { method: 'POST' }),

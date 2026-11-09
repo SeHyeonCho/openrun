@@ -1,22 +1,22 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { isApiError, isNotFound, isUnauthorized, NoResponseError } from '../api/client';
-import { api, queryKeys, useAvailability, useMe, useShow } from '../api/queries';
-import type { AvailabilityResponse, MeResponse, ShowResponse, ShowtimeSummary } from '../api/types';
+import { ApiError, isApiError, isNotFound, isUnauthorized, NoResponseError } from '../api/client';
+import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, useShow } from '../api/queries';
+import type { AvailabilityResponse, CreateOrderRequest, MeResponse, ShowResponse, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
 import { BottomBar } from '../components/BottomBar';
 import { Button, ButtonLink } from '../components/Button';
 import { Header } from '../components/Header';
 import { KakaoLoginButton } from '../components/KakaoLoginButton';
-import { LoadError, Loading, Spinner } from '../components/LoadState';
+import { LoadError, Loading } from '../components/LoadState';
 import { Notice } from '../components/Notice';
 import { Page } from '../components/Page';
 import { ShowSummary } from '../components/ShowSummary';
 import { Stepper } from '../components/Stepper';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy';
-import { formatCountdown, msUntil, serverNow } from '../lib/clock';
+import { formatCountdown, msUntil } from '../lib/clock';
 import { formatShowtime } from '../lib/format';
 import { effectiveSalesStatus } from '../lib/sales';
 import { useServerNow } from '../lib/useServerNow';
@@ -24,17 +24,11 @@ import styles from './QuantityPage.module.css';
 
 const NOT_OPEN_RETRY_MS = 1_500;
 const NOT_OPEN_MAX_RETRIES = 5;
-const CREATED_AT_MARGIN_MS = 5_000;
+const RESEND_DELAYS_MS = [1_000, 2_000];
 
-type Phase =
-    | { kind: 'idle' }
-    | { kind: 'holding' }
-    | { kind: 'waitingOpen' }
-    | { kind: 'verifying' }
-    | { kind: 'found'; token: string }
-    | { kind: 'none' }
-    | { kind: 'verifyFailed' }
-    | { kind: 'closed' };
+type Phase = { kind: 'idle' } | { kind: 'holding' } | { kind: 'waitingOpen' } | { kind: 'resending' } | { kind: 'unknown' } | { kind: 'closed' };
+
+const isUnknownResult = (error: unknown) => error instanceof NoResponseError || (error instanceof ApiError && error.status >= 500);
 
 export function QuantityPage() {
     const { showId = '', showtimeId = '' } = useParams();
@@ -117,7 +111,7 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
     const [buyerName, setBuyerName] = useState(me.nickname);
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
     const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    const holdStartedAt = useRef(0);
+    const pending = useRef<{ key: string; body: CreateOrderRequest } | null>(null);
 
     useEffect(() => () => clearTimeout(retryTimer.current), []);
 
@@ -141,45 +135,52 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
         return fresh;
     };
 
-    const verify = async (startedAt: number) => {
-        setPhase({ kind: 'verifying' });
-        try {
-            const { orders } = await queryClient.fetchQuery({ queryKey: queryKeys.myOrders, queryFn: api.getMyOrders, staleTime: 0 });
-            const created = orders.find(
-                (order) => order.showtime.id === showtime.id && order.status === 'HELD' && Date.parse(order.createdAt) >= startedAt - CREATED_AT_MARGIN_MS,
-            );
-            setPhase(created ? { kind: 'found', token: created.token } : { kind: 'none' });
-        } catch {
-            setPhase({ kind: 'verifyFailed' });
-        }
+    const hold = () => {
+        pending.current = {
+            key: newIdempotencyKey(),
+            body: { showtimeId: showtime.id, quantity: chosen, buyerName: buyerName.trim() },
+        };
+        void send(0, 0);
     };
 
-    const hold = async (attempt = 0) => {
-        const startedAt = serverNow();
-        holdStartedAt.current = startedAt;
-        setPhase({ kind: 'holding' });
+    const send = async (notOpenAttempt: number, resendCount: number) => {
+        const request = pending.current;
+        if (!request) {
+            return;
+        }
+        setPhase({ kind: resendCount > 0 ? 'resending' : 'holding' });
         try {
-            const order = await api.createOrder({ showtimeId: showtime.id, quantity: chosen, buyerName: buyerName.trim() });
+            const order = await api.createOrder(request.body, request.key);
+            pending.current = null;
             queryClient.setQueryData(queryKeys.order(order.token), order);
             void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtime.id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
             void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(show.id)) });
             navigate(`/orders/${order.token}`);
         } catch (error) {
-            if (error instanceof NoResponseError) {
-                await verify(startedAt);
+            if (isUnknownResult(error)) {
+                if (resendCount < RESEND_DELAYS_MS.length) {
+                    setPhase({ kind: 'resending' });
+                    retryTimer.current = setTimeout(() => void send(notOpenAttempt, resendCount + 1), RESEND_DELAYS_MS[resendCount] ?? 0);
+                    return;
+                }
+                setPhase({ kind: 'unknown' });
                 return;
             }
+            pending.current = null;
             if (isUnauthorized(error)) {
                 setPhase({ kind: 'idle' });
                 await login(location.pathname).catch(() => toast(copy.common.loginFailed));
                 return;
             }
             if (isApiError(error, 'SALES_NOT_OPEN')) {
-                if (attempt < NOT_OPEN_MAX_RETRIES) {
+                if (notOpenAttempt < NOT_OPEN_MAX_RETRIES) {
                     toast(text.problem.SALES_NOT_OPEN);
                     setPhase({ kind: 'waitingOpen' });
-                    retryTimer.current = setTimeout(() => void hold(attempt + 1), NOT_OPEN_RETRY_MS);
+                    retryTimer.current = setTimeout(() => {
+                        pending.current = { key: newIdempotencyKey(), body: request.body };
+                        void send(notOpenAttempt + 1, 0);
+                    }, NOT_OPEN_RETRY_MS);
                     return;
                 }
                 toast(text.problem.salesNotOpenGaveUp);
@@ -215,18 +216,22 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
     const summary = <ShowSummary title={show.title} when={showWhen} where={`${show.venue} · ${copy.seatKind[showtime.seatKind]}`} />;
     const backToShow = `/shows/${show.id}`;
 
-    if (phase.kind === 'verifying' || phase.kind === 'found' || phase.kind === 'none' || phase.kind === 'verifyFailed') {
-        const v = text.verify;
-        const view = {
-            verifying: { title: v.checkingTitle, body: v.checkingBody, icon: <Spinner size={40} />, cta: <Button disabled>{v.checkingCta}</Button> },
-            found: { title: v.foundTitle, body: v.foundBody, icon: null, cta: phase.kind === 'found' ? <ButtonLink to={`/orders/${phase.token}`}>{v.foundCta}</ButtonLink> : null },
-            none: { title: v.noneTitle, body: v.noneBody, icon: null, cta: <Button onClick={() => void hold()}>{v.retry(chosen)}</Button> },
-            verifyFailed: { title: v.failedTitle, body: v.failedBody, icon: null, cta: <Button onClick={() => void verify(holdStartedAt.current)}>{v.failedCta}</Button> },
-        }[phase.kind];
+    if (phase.kind === 'unknown') {
+        const unknown = text.unknown;
         return (
-            <Page header={header} bottomBar={<BottomBar note={v.note}>{view.cta}</BottomBar>}>
+            <Page
+                header={header}
+                bottomBar={
+                    <BottomBar note={unknown.note}>
+                        <ButtonLink to="/me/orders">{unknown.toMyOrders}</ButtonLink>
+                        <Button variant="secondary" onClick={() => void send(0, 0)}>
+                            {unknown.retry}
+                        </Button>
+                    </BottomBar>
+                }
+            >
                 {summary}
-                <Notice title={view.title} body={view.body} icon={view.icon} variant="outlined" centered live />
+                <Notice title={unknown.title} body={unknown.body} variant="outlined" centered live />
             </Page>
         );
     }
@@ -259,14 +264,14 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
     }
 
     const beforeSale = status === 'BEFORE_SALE';
-    const busy = phase.kind === 'holding' || phase.kind === 'waitingOpen';
+    const busy = phase.kind === 'holding' || phase.kind === 'waitingOpen' || phase.kind === 'resending';
     const cta = beforeSale ? (
         <Button disabled>
             {copy.showPage.cta.beforeSale} <span className={styles.countdown}>{formatCountdown(msUntil(showtime.salesOpensAt, now))}</span>
         </Button>
     ) : (
-        <Button onClick={() => void hold()} disabled={busy || !nameOk}>
-            {busy ? text.holding : text.hold(chosen)}
+        <Button onClick={hold} disabled={busy || !nameOk}>
+            {phase.kind === 'resending' ? text.resending : busy ? text.holding : text.hold(chosen)}
         </Button>
     );
 
