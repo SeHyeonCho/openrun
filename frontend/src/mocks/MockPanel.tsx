@@ -73,3 +73,14 @@ export function MockPanel() {
         </details>
     );
 }
+
+export function MockUnavailable() {
+    return (
+        <div className={styles.panel} role="alert">
+            <p className={styles.body}>
+                <span className={styles.tag}>목 데이터</span> 목 API를 시작하지 못했어요. 이 브라우저가 서비스 워커를 막고 있을 수 있어요. 다른 브라우저로 열거나
+                VITE_API_MOCK=false로 실제 서버에 붙여 주세요.
+            </p>
+        </div>
+    );
+}

@@ -9,9 +9,13 @@ async function prepareMockApi(): Promise<ReactNode> {
     if (import.meta.env.VITE_API_MOCK !== 'true') {
         return null;
     }
-    const [{ startMockApi }, { MockPanel }] = await Promise.all([import('./mocks/browser'), import('./mocks/MockPanel')]);
-    await startMockApi();
-    return <MockPanel />;
+    const [{ startMockApi }, { MockPanel, MockUnavailable }] = await Promise.all([import('./mocks/browser'), import('./mocks/MockPanel')]);
+    try {
+        await startMockApi();
+        return <MockPanel />;
+    } catch {
+        return <MockUnavailable />;
+    }
 }
 
 const root = document.getElementById('root');
