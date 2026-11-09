@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { MockDb } from '../mocks/db';
+import { loadDb, saveDb, type MockDb } from '../mocks/db';
 import { disabled, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
@@ -184,6 +184,24 @@ describe('주문 화면', () => {
         expect(confirmRequests).toBe(3);
         await waitFor(() => expect(disabled(screen.getByRole('button', { name: '예매 확정' }))).toBe(false));
     }, 10_000);
+
+    it('취소 응답을 받지 못하면 알리고 주문을 다시 불러와 서버에서 취소된 상태를 보여 준다', async () => {
+        server.use(
+            http.post('/api/orders/:token/cancel', () => {
+                const db = loadDb();
+                db.orders.find((o) => o.token === 'held-demo')!.status = 'CANCELLED';
+                saveDb(db);
+                return HttpResponse.error();
+            }),
+        );
+        renderRoute('/orders/held-demo', { loggedIn: true });
+
+        fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
+        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '예매 취소' }));
+
+        expect(await screen.findByText('취소가 됐는지 알 수 없어요. 다시 눌러도 같은 결과예요.')).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
+    });
 
     it('주문 링크로 들어온 다른 사람에게는 확정·취소 버튼을 보여 주지 않는다', async () => {
         renderRoute('/orders/viewer-demo', { loggedIn: true });

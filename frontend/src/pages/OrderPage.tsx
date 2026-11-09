@@ -94,6 +94,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     const handleFailure = async (error: unknown) => {
         if (error instanceof NoResponseError) {
             toast(text.problem.cancelNoResponse);
+            refetch();
             return;
         }
         if (isUnauthorized(error)) {
