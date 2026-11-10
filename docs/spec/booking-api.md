@@ -256,7 +256,7 @@ Showtime:
 | 요청 필드 | 타입 | 설명 |
 |---|---|---|
 | `showtimeId` | number | 회차 ID |
-| `quantity` | number | 자유석 회차에서 고른 좌석 수. 1 이상이다 |
+| `quantity` | number | 자유석 회차에서 고른 좌석 수. 1 이상의 정수다. 소수나 0 이하는 `400`이다 |
 | `seatIds` | number[] | 지정석 회차에서 고른 좌석. 비어 있거나 같은 좌석이 두 번 있으면 안 된다 |
 | `buyerName` | string | 예매자 이름. 앞뒤 공백을 빼고 1~20자다 |
 
