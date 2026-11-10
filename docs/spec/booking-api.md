@@ -293,7 +293,7 @@ X-XSRF-TOKEN: 4b1c...
 { "showtimeId": 12, "quantity": 2, "buyerName": "밤산책" }
 ```
 
-성공하면 `201 Created`와 함께 위 주문 응답 예시와 같은 `HELD` 주문을 돌려준다.
+처음 선점에 성공하면 `201 Created`와 함께 위 주문 응답 예시와 같은 `HELD` 주문을 돌려준다. 같은 식별자로 다시 보내면 같은 `201`과 그 주문의 지금 상태를 돌려준다. 그사이 확정·취소했거나 기한이 지났으면 `CONFIRMED`, `CANCELLED`, `EXPIRED`일 수 있다(8절).
 
 | 상황 | HTTP 상태 | `code` |
 |---|---|---|
