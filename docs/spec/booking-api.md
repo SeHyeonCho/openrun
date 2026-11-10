@@ -111,6 +111,10 @@
 | 로그인함 | 200 |
 | 로그인하지 않음 | 401 |
 
+```http
+GET /api/me
+```
+
 ```json
 {
   "buyerId": "b_7Qm2xK9pLr",
@@ -122,6 +126,15 @@
 ### `POST /api/logout`
 
 로그인 세션을 끝낸다. 성공하면 `204`이고 본문이 없다. 로그인하지 않은 상태에서 불러도 아무것도 바꾸지 않고 `204`다. CSRF 토큰은 필요하다.
+
+```http
+POST /api/logout
+X-XSRF-TOKEN: 4b1c...
+```
+
+```http
+HTTP/1.1 204 No Content
+```
 
 ## 5. 공연
 
@@ -157,6 +170,10 @@ Showtime:
 |---|---|
 | 성공 | 200 |
 | 없는 공연 | 404 |
+
+```http
+GET /api/performances/1
+```
 
 ```json
 {
@@ -201,6 +218,10 @@ Showtime:
 |---|---|
 | 성공 | 200 |
 | 없는 회차 | 404 |
+
+```http
+GET /api/showtimes/12/availability
+```
 
 ```json
 {
@@ -272,6 +293,8 @@ X-XSRF-TOKEN: 4b1c...
 { "showtimeId": 12, "quantity": 2, "buyerName": "밤산책" }
 ```
 
+성공하면 `201 Created`와 함께 위 주문 응답 예시와 같은 `HELD` 주문을 돌려준다.
+
 | 상황 | HTTP 상태 | `code` |
 |---|---|---|
 | 선점함 | 201 | |
@@ -289,6 +312,22 @@ X-XSRF-TOKEN: 4b1c...
 
 주문을 알려 준다. 주문 토큰을 가진 사람은 로그인하지 않아도 볼 수 있다. 함께 갈 사람에게 표를 보여 주거나 입구에서 QR을 띄우는 용도다.
 
+```http
+GET /api/orders/o_Vx3k9QmT2pLw8RzA1nYc5d
+```
+
+응답은 주문 응답 모양이다. 로그인하지 않은 사람이나 다른 구매자가 열면 `isOwner`가 `false`다. 아래는 링크를 받은 사람이 기한이 지난 주문을 열었을 때의 응답에서 달라지는 필드만 보인 것이다.
+
+```json
+{
+  "token": "o_Vx3k9QmT2pLw8RzA1nYc5d",
+  "status": "EXPIRED",
+  "heldUntil": "2026-11-20T11:10:03.218000Z",
+  "isOwner": false,
+  "serverTime": "2026-11-20T11:15:00Z"
+}
+```
+
 | 상황 | HTTP 상태 |
 |---|---|
 | 성공 | 200 |
@@ -299,6 +338,23 @@ X-XSRF-TOKEN: 4b1c...
 선점을 확정한다. 이번 단계에는 결제가 없어서 이 요청이 결제를 대신한다. 결제(P2)가 들어오면 결제 성공이 확정을 대신 부른다. 주문을 만든 구매자만 할 수 있고, CSRF 토큰이 필요하다. 요청 본문은 없다.
 
 - 이미 확정한 주문을 다시 확정하면 같은 응답(`200`)을 돌려주고 아무것도 바꾸지 않는다. 그래서 결과를 모를 때 같은 주문으로 다시 보내도 된다
+
+```http
+POST /api/orders/o_Vx3k9QmT2pLw8RzA1nYc5d/confirm
+X-XSRF-TOKEN: 4b1c...
+```
+
+성공 응답은 주문 응답 모양이다. 아래는 주문 응답 예시에서 달라지는 필드만 보인 것이다. 선점 기한은 확정한 뒤에도 원래 값 그대로다.
+
+```json
+{
+  "token": "o_Vx3k9QmT2pLw8RzA1nYc5d",
+  "status": "CONFIRMED",
+  "heldUntil": "2026-11-20T11:10:03.218000Z",
+  "isOwner": true,
+  "serverTime": "2026-11-20T11:02:41.007000Z"
+}
+```
 
 | 상황 | HTTP 상태 | `code` |
 |---|---|---|
@@ -312,6 +368,22 @@ X-XSRF-TOKEN: 4b1c...
 기한 전의 선점을 취소한다. 주문은 `CANCELLED`가 되고 좌석은 바로 다시 팔 수 있다. 주문을 만든 구매자만 할 수 있고, CSRF 토큰이 필요하다. 요청 본문은 없다.
 
 - 이미 취소한 주문을 다시 취소하면 같은 응답(`200`)을 돌려주고 아무것도 바꾸지 않는다
+
+```http
+POST /api/orders/o_Vx3k9QmT2pLw8RzA1nYc5d/cancel
+X-XSRF-TOKEN: 4b1c...
+```
+
+성공 응답은 주문 응답 모양이다. 아래는 주문 응답 예시에서 달라지는 필드만 보인 것이다.
+
+```json
+{
+  "token": "o_Vx3k9QmT2pLw8RzA1nYc5d",
+  "status": "CANCELLED",
+  "isOwner": true,
+  "serverTime": "2026-11-20T11:03:12.540000Z"
+}
+```
 
 | 상황 | HTTP 상태 | `code` |
 |---|---|---|
@@ -328,6 +400,10 @@ X-XSRF-TOKEN: 4b1c...
 |---|---|---|
 | `orders` | object[] | 주문 응답에서 `buyerName`, `isOwner`, `serverTime`을 뺀 모양이다 |
 | `serverTime` | string | |
+
+```http
+GET /api/me/orders
+```
 
 ```json
 {
@@ -470,7 +546,8 @@ X-XSRF-TOKEN: 4b1c...
 
 | 화면의 지금 | 이 명세 |
 |---|---|
-| `/api/shows/{id}`, 응답의 `show` | `/api/performances/{id}`, 응답의 `performance` |
+| 공연 경로 `/api/shows/{id}` | `/api/performances/{id}`. 응답의 최상위 필드(`id`, `title`, `venue` 등)는 같다 |
+| 주문 응답과 내 주문 목록 안의 `show` 객체 | `performance` 객체. 안의 필드(`id`, `title`, `venue`)는 같다 |
 | `GET /api/me`에 `nickname`만 | `buyerId` 추가 |
 | 목 로그인(`/api/auth/mock-login`) | `/oauth2/authorization/kakao` 이동, `POST /api/logout` |
 | CSRF 헤더 없음 | `POST`에 `X-XSRF-TOKEN` |
