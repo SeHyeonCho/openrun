@@ -29,7 +29,7 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
    - 그 외 이유로 실패하면 PR을 열지 않고 원인을 보고한다
 5. 문서만 바꿨어도 앱이 뜨는지 확인한다.
    - 시작 전에 `docker compose ps --services --status running`으로 이미 켜져 있는 서비스를 기록한다
-   - `docker compose up -d`로 띄우고 모든 서비스가 healthy가 될 때까지 기다린다
+   - `docker compose up -d --no-recreate`로 꺼져 있는 서비스만 띄우고, 모든 서비스가 healthy가 될 때까지 기다린다. 이미 켜져 있는 컨테이너는 다시 만들지 않는다. 이 브랜치가 Compose 설정을 바꿔 기존 서비스를 다시 만들어야 하면, 진행하지 않고 사용자에게 먼저 묻는다
    - `./gradlew bootRun --args='--spring.profiles.active=local'`을 백그라운드로 띄우고, 로그에서 마이그레이션 검증과 `Started` 줄을 확인한다
    - 데이터를 바꾸지 않는 요청만 보낸다. 예: 샘플 회차의 좌석 조회, 없는 회차·주문 요청의 `404`
    - 확인한 뒤 앱을 끄고, 이번 확인에서 새로 켠 서비스만 `docker compose stop <서비스>`로 끈다. 원래 켜져 있던 서비스는 다른 세션이 쓰고 있을 수 있어 그대로 둔다
