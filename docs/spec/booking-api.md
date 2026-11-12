@@ -148,7 +148,6 @@ HTTP/1.1 204 No Content
 | `title` | string | 공연 제목 |
 | `venue` | string | 장소 |
 | `posterUrl` | string \| null | 포스터 이미지 주소 |
-| `holdMinutes` | number | 선점 유지 시간(분). "N분 안에 확정" 안내에 쓴다 |
 | `showtimes` | Showtime[] | 회차 목록. 공연 시작 시각 순이다 |
 | `serverTime` | string | |
 
@@ -161,6 +160,7 @@ Showtime:
 | `endsAt` | string | 공연 종료 시각 |
 | `salesOpensAt` | string | 판매 시작 시각 |
 | `salesClosesAt` | string | 판매 마감 시각. 따로 정하지 않았으면 `endsAt`과 같다 |
+| `holdMinutes` | number | 선점 유지 시간(분). 회차마다 정한다. "N분 안에 확정" 안내에 쓴다 |
 | `seatKind` | string | `FREE` 또는 `RESERVED` |
 | `salesStatus` | string | 판매 상태 |
 | `remaining` | number | 남은 좌석 수. 확정 좌석과 기한 안의 선점 좌석을 뺀 수다 |
@@ -181,7 +181,6 @@ GET /api/performances/1
   "title": "NIGHT SIGNAL",
   "venue": "홍대 라이브홀 B2",
   "posterUrl": "https://cdn.example/posters/1.png",
-  "holdMinutes": 10,
   "showtimes": [
     {
       "id": 12,
@@ -189,6 +188,7 @@ GET /api/performances/1
       "endsAt": "2026-12-05T12:30:00Z",
       "salesOpensAt": "2026-11-20T11:00:00Z",
       "salesClosesAt": "2026-12-05T12:30:00Z",
+      "holdMinutes": 10,
       "seatKind": "FREE",
       "salesStatus": "BEFORE_SALE",
       "remaining": 90,
@@ -557,6 +557,7 @@ GET /api/me/orders
 |---|---|
 | 공연 경로 `/api/shows/{id}` | `/api/performances/{id}`. 응답의 최상위 필드(`id`, `title`, `venue` 등)는 같다 |
 | 주문 응답과 내 주문 목록 안의 `show` 객체 | `performance` 객체. 안의 필드(`id`, `title`, `venue`)는 같다 |
+| 선점 유지 시간 `holdMinutes`를 공연 응답에 둠 | 회차(`showtimes[]`)마다 둔다 |
 | `GET /api/me`에 `nickname`만 | `buyerId` 추가 |
 | 목 로그인(`/api/auth/mock-login`) | `/oauth2/authorization/kakao` 이동, `POST /api/logout` |
 | CSRF 헤더 없음 | `POST`에 `X-XSRF-TOKEN` |
