@@ -77,7 +77,7 @@
 | 이름 | 값 | 설명 |
 |---|---|---|
 | 판매 상태 | `BEFORE_SALE`, `ON_SALE`, `SOLD_OUT`, `SALES_CLOSED` | `serverTime` 기준으로 계산한다 |
-| 좌석 종류 | `FREE`(자유석), `RESERVED`(지정석) | 한 회차는 한 종류만 판다 |
+| 좌석 종류 | `GENERAL`(자유석), `RESERVED`(지정석) | 한 회차는 한 종류만 판다 |
 | 주문 상태 | `HELD`, `CONFIRMED`, `EXPIRED`, `CANCELLED` | `serverTime` 기준이다. 기한이 지난 `HELD` 주문은 `EXPIRED`로 준다 |
 
 ## 3. API 목록
@@ -161,7 +161,7 @@ Showtime:
 | `salesOpensAt` | string | 판매 시작 시각 |
 | `salesClosesAt` | string | 판매 마감 시각. 따로 정하지 않았으면 `endsAt`과 같다 |
 | `holdMinutes` | number | 선점 유지 시간(분). 회차마다 정한다. "N분 안에 확정" 안내에 쓴다 |
-| `seatKind` | string | `FREE` 또는 `RESERVED` |
+| `seatKind` | string | `GENERAL` 또는 `RESERVED` |
 | `salesStatus` | string | 판매 상태 |
 | `remaining` | number | 남은 좌석 수. 확정 좌석과 기한 안의 선점 좌석을 뺀 수다 |
 | `maxSeatsPerBuyer` | number | 1인 최대 좌석 수 |
@@ -189,7 +189,7 @@ GET /api/performances/1
       "salesOpensAt": "2026-11-20T11:00:00Z",
       "salesClosesAt": "2026-12-05T12:30:00Z",
       "holdMinutes": 10,
-      "seatKind": "FREE",
+      "seatKind": "GENERAL",
       "salesStatus": "BEFORE_SALE",
       "remaining": 90,
       "maxSeatsPerBuyer": 4
@@ -558,6 +558,7 @@ GET /api/me/orders
 | 공연 경로 `/api/shows/{id}` | `/api/performances/{id}`. 응답의 최상위 필드(`id`, `title`, `venue` 등)는 같다 |
 | 주문 응답과 내 주문 목록 안의 `show` 객체 | `performance` 객체. 안의 필드(`id`, `title`, `venue`)는 같다 |
 | 선점 유지 시간 `holdMinutes`를 공연 응답에 둠 | 회차(`showtimes[]`)마다 둔다 |
+| 자유석의 좌석 종류 값 `FREE` | `GENERAL`. 서버 코드와 DB가 쓰는 값이다 |
 | `GET /api/me`에 `nickname`만 | `buyerId` 추가 |
 | 목 로그인(`/api/auth/mock-login`) | `/oauth2/authorization/kakao` 이동, `POST /api/logout` |
 | CSRF 헤더 없음 | `POST`에 `X-XSRF-TOKEN` |
