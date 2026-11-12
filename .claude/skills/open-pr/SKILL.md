@@ -28,10 +28,11 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
    - Docker가 꺼져 있어 Testcontainers가 실패하면 Docker를 먼저 켜자고 제안한다
    - 그 외 이유로 실패하면 PR을 열지 않고 원인을 보고한다
 5. 문서만 바꿨어도 앱이 뜨는지 확인한다.
-   - Compose 인프라가 꺼져 있으면 `docker compose up -d`로 띄우고 healthy가 될 때까지 기다린다
+   - 시작 전에 `docker compose ps --services --status running`으로 이미 켜져 있는 서비스를 기록한다
+   - `docker compose up -d`로 띄우고 모든 서비스가 healthy가 될 때까지 기다린다
    - `./gradlew bootRun --args='--spring.profiles.active=local'`을 백그라운드로 띄우고, 로그에서 마이그레이션 검증과 `Started` 줄을 확인한다
    - 데이터를 바꾸지 않는 요청만 보낸다. 예: 샘플 회차의 좌석 조회, 없는 회차·주문 요청의 `404`
-   - 확인한 뒤 앱을 끄고, 인프라가 꺼져 있었으면 `docker compose down`으로 돌린다
+   - 확인한 뒤 앱을 끄고, 이번 확인에서 새로 켠 서비스만 `docker compose stop <서비스>`로 끈다. 원래 켜져 있던 서비스는 다른 세션이 쓰고 있을 수 있어 그대로 둔다
 6. `.github/pull_request_template.md`를 읽고 본문을 채운다.
    - `📌 관련 이슈`: `Closes #<번호>`
    - `✨ 변경 사항`: `git diff main...HEAD`를 기준으로 무엇이 바뀌었는지 요약한다. 커밋 목록을 그대로 옮기지 않는다
