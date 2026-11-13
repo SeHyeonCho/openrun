@@ -45,16 +45,18 @@ allowed-tools: Bash(gh pr view *) Bash(gh api graphql *) Bash(gh run list *) Bas
 4. 승인된 항목을 반영한다. 커밋은 변경 성격별로 나누고 CLAUDE.md 커밋 규칙을 따른다 (예: `fix: 홀드 만료 시각 비교 경계값 수정`). "리뷰 반영"처럼 무엇을 바꿨는지 드러나지 않는 메시지는 쓰지 않는다.
 5. `./gradlew build --rerun-tasks`로 확인한다. 실패하면 push하지 않고 보고한다.
 6. 승인을 받고 push한다. CodeRabbit이 새 커밋을 다시 리뷰한다.
-7. 반박하거나 보류한 스레드에 이유를 답글로 남길지 묻는다. 승인되면 답글을 단다:
-   `gh api -X POST 'repos/{owner}/{repo}/pulls/<번호>/comments/<databaseId>/replies' -f body='<이유>'`
-   - 보류 항목은 `/new-issue`로 이슈를 만들자고 제안한다
+7. 모든 스레드에 답글을 단다. 답글 초안을 보여주고 승인을 받은 뒤 단다. 말투는 CLAUDE.md의 CodeRabbit 답글 규칙(반말, 이유를 앞에, 평가로 시작하지 않음)을 따른다:
+   `gh api -X POST 'repos/{owner}/{repo}/pulls/<번호>/comments/<databaseId>/replies' -f body='<답글>'`
+   - 반영한 스레드에는 무엇을 고쳤는지 커밋 해시와 함께 쓴다
+   - 반박·보류한 스레드에는 이유를 쓴다. 보류 항목은 `/new-issue`로 이슈를 만들자고 제안한다
+   - 스레드는 직접 해결 처리하지 않는다. CodeRabbit이 답글과 새 커밋을 확인해 해결한다
 8. 반영하지 않은 주요 지적과 그 이유를 PR 본문의 `💭 결정 · 고민 사항`에 추가할지 묻는다.
-9. PR 본문의 `🧪 테스트 증명`에 PR 마지막 커밋의 `build` 성공 링크가 없으면, 링크를 덧붙일지 묻는다. 아래 명령이 아무것도 출력하지 않으면 성공한 실행이 아직 없는 것이다:
+9. PR 본문의 `🧪 테스트 증명`에 PR 마지막 커밋의 `build` 성공 링크가 없으면, 빌드 출력 블록 바로 아래에 ``- CI: [`<짧은 해시>`의 `build` 성공 실행](<실행 URL>)``로 덧붙일지 묻는다. 아래 명령이 아무것도 출력하지 않으면 성공한 실행이 아직 없는 것이다:
    `gh run list --workflow build.yml --commit "$(gh pr view <번호> --json headRefOid --jq .headRefOid)" --status success --limit 1 --json url --jq '.[].url'`
+10. CodeRabbit이 승인한 뒤에도 마지막 리뷰 본문과 사전 병합 체크를 확인한다. 바뀌지 않은 줄에 대한 지적(Outside diff range comments)과 사전 병합 체크 경고는 스레드가 없어 승인을 막지 않는다. 남아 있으면 1~3번처럼 판단 표로 보여준다.
 
 ## CodeRabbit이 예상과 다르게 동작할 때
 
-- 반박·보류 답글에 동의하고도 스레드를 해결하지 않으면, 동의한 답글을 확인한 뒤 해결 처리할지 묻는다. 승인되면 1번에서 가져온 스레드 `id`로 해결한다:
-  `gh api graphql -f query='mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' -f id=<스레드 id>`
+- 답글에 동의하고도 스레드를 해결하지 않으면, 직접 해결하지 않고 그 스레드에 `@coderabbitai`로 다시 확인해 달라는 답글을 달지 묻는다
 - `@coderabbitai review`는 새 커밋이 없으면 이미 리뷰한 커밋이라며 실행되지 않는다. 판정이 `CHANGES_REQUESTED`로 남아 있으면 미해결 스레드부터 확인한다. CodeRabbit은 자기 스레드가 모두 해결되고 PR 마지막 커밋까지 리뷰했으면 자동으로 승인한다. 이 저장소의 사전 병합 체크는 `warning` 모드라 실패해도 승인을 막지 않는다
 - 커밋 상태가 `Review rate limited`이면 리뷰 한도(시간당 1회)에 걸려 그 커밋을 건너뛴 것이다. 한도가 풀린 뒤 PR에 `@coderabbitai review`를 요청한다
