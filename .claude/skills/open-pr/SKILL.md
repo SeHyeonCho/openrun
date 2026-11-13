@@ -35,7 +35,8 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
    - 켜져 있던 서비스의 설정이 지금 설정과 달라 앱 확인이 실패하면, 그 서비스를 다시 만들지 말고 사용자에게 먼저 묻는다
    - `./gradlew bootRun --args='--spring.profiles.active=local'`을 백그라운드로 띄우고, 로그에서 마이그레이션 검증과 `Started` 줄을 확인한다
    - 데이터를 바꾸지 않는 요청만 보낸다. 예: 샘플 회차의 좌석 조회, 없는 회차·주문 요청의 `404`
-   - 확인한 뒤 앱을 끄고, 이번 확인에서 새로 켠 서비스만 `docker compose stop <서비스>`로 끈다. 원래 켜져 있던 서비스는 다른 세션이 쓰고 있을 수 있어 그대로 둔다
+   - 확인한 뒤 앱을 끈다. 원래 켜져 있던 서비스는 다른 세션이 쓰고 있을 수 있어 그대로 둔다
+   - 이번 확인에서 새로 켠 서비스도 그사이 잠금 밖의 세션이 쓰기 시작했을 수 있어, 끄기 전에 서비스 목록을 보여 주고 사용자에게 묻는다. 승인받은 서비스만 `docker compose stop <서비스>`로 끈다
    - 마지막에 `rmdir /tmp/openrun-bootrun.lock`으로 잠금을 푼다. 확인이 중간에 실패해도 서비스를 정리한 뒤 잠금을 푼다
 6. `.github/pull_request_template.md`를 읽고 본문을 채운다.
    - `📌 관련 이슈`: `Closes #<번호>`
