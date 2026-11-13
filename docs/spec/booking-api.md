@@ -77,7 +77,7 @@
 | 이름 | 값 | 설명 |
 |---|---|---|
 | 판매 상태 | `BEFORE_SALE`, `ON_SALE`, `SOLD_OUT`, `SALES_CLOSED` | `serverTime` 기준으로 계산한다 |
-| 좌석 종류 | `FREE`(자유석), `RESERVED`(지정석) | 한 회차는 한 종류만 판다 |
+| 좌석 종류 | `GENERAL`(자유석), `RESERVED`(지정석) | 한 회차는 한 종류만 판다 |
 | 주문 상태 | `HELD`, `CONFIRMED`, `EXPIRED`, `CANCELLED` | `serverTime` 기준이다. 기한이 지난 `HELD` 주문은 `EXPIRED`로 준다 |
 
 ## 3. API 목록
@@ -148,7 +148,6 @@ HTTP/1.1 204 No Content
 | `title` | string | 공연 제목 |
 | `venue` | string | 장소 |
 | `posterUrl` | string \| null | 포스터 이미지 주소 |
-| `holdMinutes` | number | 선점 유지 시간(분). "N분 안에 확정" 안내에 쓴다 |
 | `showtimes` | Showtime[] | 회차 목록. 공연 시작 시각 순이다 |
 | `serverTime` | string | |
 
@@ -161,7 +160,8 @@ Showtime:
 | `endsAt` | string | 공연 종료 시각 |
 | `salesOpensAt` | string | 판매 시작 시각 |
 | `salesClosesAt` | string | 판매 마감 시각. 따로 정하지 않았으면 `endsAt`과 같다 |
-| `seatKind` | string | `FREE` 또는 `RESERVED` |
+| `holdMinutes` | number | 선점 유지 시간(분). 회차마다 정한다. "N분 안에 확정" 안내에 쓴다 |
+| `seatKind` | string | `GENERAL` 또는 `RESERVED` |
 | `salesStatus` | string | 판매 상태 |
 | `remaining` | number | 남은 좌석 수. 확정 좌석과 기한 안의 선점 좌석을 뺀 수다 |
 | `maxSeatsPerBuyer` | number | 1인 최대 좌석 수 |
@@ -181,7 +181,6 @@ GET /api/performances/1
   "title": "NIGHT SIGNAL",
   "venue": "홍대 라이브홀 B2",
   "posterUrl": "https://cdn.example/posters/1.png",
-  "holdMinutes": 10,
   "showtimes": [
     {
       "id": 12,
@@ -189,7 +188,8 @@ GET /api/performances/1
       "endsAt": "2026-12-05T12:30:00Z",
       "salesOpensAt": "2026-11-20T11:00:00Z",
       "salesClosesAt": "2026-12-05T12:30:00Z",
-      "seatKind": "FREE",
+      "holdMinutes": 10,
+      "seatKind": "GENERAL",
       "salesStatus": "BEFORE_SALE",
       "remaining": 90,
       "maxSeatsPerBuyer": 4
@@ -460,12 +460,21 @@ GET /api/me/orders
 | 처음 보는 식별자 | 처리한다. 결과가 선점 성공이거나 선점 규칙 위반(`BUYER_CHANGED`를 뺀 `409`)이면 식별자, 요청 내용, 결과를 기록한다. 기록은 주문을 만드는 것과 같은 트랜잭션에서 해서, 주문만 생기고 기록이 없는 경우가 없게 한다 |
 | 같은 구매자가 같은 식별자, 같은 내용으로 다시 보냄 | 기록한 결과를 돌려준다. 성공이었으면 `201`과 그 주문의 지금 상태를, 규칙 위반이었으면 같은 `409`와 `code`를 준다. `serverTime`은 새로 넣는다 |
 | 같은 식별자를 다른 내용으로 보냄 | `422 IDEMPOTENCY_KEY_REUSED`로 거부하고 아무것도 바꾸지 않는다 |
-| 같은 식별자로 두 요청이 동시에 옴 | 두 번째 요청은 구매자 잠금에서 첫 요청이 끝나기를 기다린 뒤 기록한 결과를 받는다. 주문은 하나만 생긴다 |
+| 같은 식별자, 같은 내용으로 두 요청이 동시에 옴 | 두 번째 요청은 첫 요청이 끝나기를 기다린 뒤 기록한 결과를 받는다. 주문은 둘 이상 생기지 않는다 |
+| 같은 식별자를 다른 내용으로 두 요청이 동시에 보냄(예: 회차가 다름) | 먼저 기록된 요청만 처리한다. 다른 요청은 `422 IDEMPOTENCY_KEY_REUSED`로 거부하고 아무것도 바꾸지 않는다. 주문은 둘 이상 생기지 않는다 |
 | 처리 중 오류(`5xx`)로 되돌려진 요청 | 기록하지 않는다. 같은 식별자로 다시 오면 새로 처리한다 |
-| `400`, `401`, `403`, `404`, `422`, `409 BUYER_CHANGED`로 끝난 요청 | 기록하지 않는다. 선점 규칙을 판단하기 전에 끝난 요청이다 |
+| `400`, `401`, `403`, `404`, `422`, `409 BUYER_CHANGED`로 끝난 요청 | 기록하지 않는다. 선점 규칙을 판단하기 전에 끝났거나, 유일 제약에 걸려 한 일을 모두 되돌린 요청이다 |
 | 기억 기간 | 24시간이다. 지나면 기록을 지운다 |
 
 "같은 내용"은 `showtimeId`, `quantity` 또는 `seatIds`(순서 무관), `buyerName`(앞뒤 공백 제외)이 모두 같은 것이다.
+
+### 동시 요청에서 지키는 것
+
+- 식별자 기록에는 (구매자, 식별자) 유일 제약을 둔다. 같은 구매자의 같은 식별자로 주문이 둘 생기지 않는 것은 이 제약이 보장한다
+- 구매자 잠금은 (회차, 구매자) 단위다. 같은 식별자를 다른 회차로 동시에 보낸 두 요청은 서로 기다리지 않으므로, 구매자 잠금만으로는 이 경우를 막지 못한다
+- 유일 제약에 걸린 요청은 그 요청이 만든 주문과 좌석 변경을 모두 되돌린다. 그 뒤 먼저 기록된 요청과 내용을 비교해, 같으면 기록한 결과를 돌려주고 다르면 `422 IDEMPOTENCY_KEY_REUSED`로 거부한다
+- 내용이 같은 두 요청은 회차도 같아서 구매자 잠금에서 먼저 차례를 기다리므로, 보통은 유일 제약에 걸리지 않는다. 같으면 기록한 결과를 돌려주는 규칙은 잠금 범위가 바뀌어도 결과가 같도록 둔 것이다
+- 먼저 처리하던 요청이 기록 없이 끝나면(`5xx` 등) 뒤 요청은 제약에 걸리지 않는다. 처음 보는 식별자로 처리한다
 
 ### 화면이 할 일
 
@@ -494,7 +503,7 @@ GET /api/me/orders
 |---|---|---|
 | 처리 실패 | `400`, `404`, `422`, `BUYER_CHANGED`를 뺀 `409` 응답을 받았다 | 7절의 실패 안내 |
 | 다른 계정으로 로그인함 | `409 BUYER_CHANGED`를 받았거나, 보관한 요청의 `buyerId`가 지금 구매자와 다르다 | 원래 계정으로 로그인해 예매 내역에서 확인 |
-| 아직 처리 중 | 응답을 기다리는 중이다. 서버는 같은 구매자의 요청을 잠금으로 차례로 처리하므로 "처리 중" 응답을 따로 주지 않는다 | 선점 버튼에 "결과를 확인하는 중" |
+| 아직 처리 중 | 응답을 기다리는 중이다. 서버는 같은 식별자의 요청을 차례로 처리하므로 "처리 중" 응답을 따로 주지 않는다 | 선점 버튼에 "결과를 확인하는 중" |
 | 결과를 알 수 없음 | 다시 보내기 한도까지 응답이 없거나 `5xx`다 | "결과를 확인하지 못했다", 내 주문 보기, 다시 시도 |
 | 기억 기간이 지남 | 보관한 요청을 만든 지 23시간이 넘었다 | 내 주문에서 확인 |
 
@@ -557,6 +566,8 @@ GET /api/me/orders
 |---|---|
 | 공연 경로 `/api/shows/{id}` | `/api/performances/{id}`. 응답의 최상위 필드(`id`, `title`, `venue` 등)는 같다 |
 | 주문 응답과 내 주문 목록 안의 `show` 객체 | `performance` 객체. 안의 필드(`id`, `title`, `venue`)는 같다 |
+| 선점 유지 시간 `holdMinutes`를 공연 응답에 둠 | 회차(`showtimes[]`)마다 둔다 |
+| 자유석의 좌석 종류 값 `FREE` | `GENERAL`. 서버 코드와 DB가 쓰는 값이다 |
 | `GET /api/me`에 `nickname`만 | `buyerId` 추가 |
 | 목 로그인(`/api/auth/mock-login`) | `/oauth2/authorization/kakao` 이동, `POST /api/logout` |
 | CSRF 헤더 없음 | `POST`에 `X-XSRF-TOKEN` |
