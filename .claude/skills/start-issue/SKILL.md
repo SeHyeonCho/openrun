@@ -13,7 +13,7 @@ allowed-tools: Bash(gh issue view *) Bash(git status *) Bash(git fetch *) Bash(g
 
 ## 이슈
 
-!`gh issue view $issue`
+!`gh issue view $issue || echo "이슈를 조회하지 못했다. 번호 없이 실행했다면 /start-issue <이슈 번호>로 다시 실행한다"`
 
 ## 작업 트리
 
@@ -21,7 +21,7 @@ allowed-tools: Bash(gh issue view *) Bash(git status *) Bash(git fetch *) Bash(g
 
 ## 절차
 
-1. 이슈가 닫혀 있거나 라벨·마일스톤이 없으면 멈추고 알린다.
+1. 이슈를 조회하지 못했으면(번호 없이 실행했거나 없는 번호) 멈추고 `/start-issue <이슈 번호>`로 다시 실행하라고 안내한다. 이슈가 닫혀 있거나 라벨·마일스톤이 없어도 멈추고 알린다.
 2. 커밋되지 않은 변경이 있으면 멈추고 어떻게 할지 묻는다.
 3. 브랜치 이름을 정한다: `<type>/$issue-<영문 kebab-case 2~5단어>`. type은 이슈 제목의 type을 그대로 쓴다.
 4. 최신 main에서 분기한다.
