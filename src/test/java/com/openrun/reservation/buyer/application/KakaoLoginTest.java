@@ -67,23 +67,27 @@ class KakaoLoginTest {
     @DisplayName("같은 카카오 계정으로 동시에 처음 로그인해도 구매자는 하나만 생기고 모두 같은 구매자로 로그인한다")
     void concurrentFirstLoginsCreateOneBuyer() throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(THREADS);
-        CountDownLatch ready = new CountDownLatch(THREADS);
-        CountDownLatch start = new CountDownLatch(1);
-        List<Future<LoginBuyer>> futures = new ArrayList<>();
-        for (int i = 0; i < THREADS; i++) {
-            futures.add(executor.submit(() -> {
-                ready.countDown();
-                start.await();
-                return kakaoOAuth2UserService.login(new KakaoAccount(2001L, "동시 로그인"));
-            }));
-        }
-        ready.await();
-        start.countDown();
         List<LoginBuyer> buyers = new ArrayList<>();
-        for (Future<LoginBuyer> future : futures) {
-            buyers.add(future.get(30, TimeUnit.SECONDS));
+        try {
+            CountDownLatch ready = new CountDownLatch(THREADS);
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<LoginBuyer>> futures = new ArrayList<>();
+            for (int i = 0; i < THREADS; i++) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    return kakaoOAuth2UserService.login(new KakaoAccount(2001L, "동시 로그인"));
+                }));
+            }
+            ready.await();
+            start.countDown();
+            for (Future<LoginBuyer> future : futures) {
+                buyers.add(future.get(30, TimeUnit.SECONDS));
+            }
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
         }
-        executor.shutdown();
 
         assertThat(buyers).extracting(LoginBuyer::id).containsOnly(buyers.getFirst().id());
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM buyer WHERE kakao_id = 2001", Integer.class))
