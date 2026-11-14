@@ -65,16 +65,16 @@ class OrderConfirmExpiryTest {
     void confirmsJustBeforeHeldUntil() {
         Showtime showtime = createShowtime();
         Long seatId = saveSeat(showtime, "A1");
-        Long orderId = holdAtOpening(showtime, seatId);
+        String token = holdAtOpening(showtime, seatId);
 
         clock.setInstant(JUST_BEFORE_HELD_UNTIL);
-        OrderResponse confirmed = orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        OrderResponse confirmed = orderService.confirm(1L, token);
 
         assertThat(confirmed.status().name()).isEqualTo("CONFIRMED");
-        assertThat(orderStatus(orderId)).isEqualTo("CONFIRMED");
+        assertThat(orderStatus(token)).isEqualTo("CONFIRMED");
         assertThat(jdbcTemplate.queryForMap("SELECT status, current_order_id, held_until FROM seat WHERE id = ?", seatId))
                 .containsEntry("status", "SOLD")
-                .containsEntry("current_order_id", orderId)
+                .containsEntry("current_order_id", orderIdOf(token))
                 .containsEntry("held_until", null);
     }
 
@@ -83,14 +83,14 @@ class OrderConfirmExpiryTest {
     void rejectsConfirmFromHeldUntil() {
         Showtime showtime = createShowtime();
         Long seatId = saveSeat(showtime, "A1");
-        Long orderId = holdAtOpening(showtime, seatId);
+        String token = holdAtOpening(showtime, seatId);
 
         clock.setInstant(HELD_UNTIL);
 
-        assertThatThrownBy(() -> orderService.confirm(orderId, new ConfirmOrderRequest(1L)))
+        assertThatThrownBy(() -> orderService.confirm(1L, token))
                 .isInstanceOfSatisfying(OrderConfirmRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(OrderConfirmRejection.ORDER_EXPIRED));
-        assertThat(orderStatus(orderId)).isEqualTo("HELD");
+        assertThat(orderStatus(token)).isEqualTo("HELD");
         assertThat(seatStatus(seatId)).isEqualTo("HELD");
     }
 
@@ -99,16 +99,16 @@ class OrderConfirmExpiryTest {
     void confirmedSeatCannotBeHeldAfterHeldUntil() {
         Showtime showtime = createShowtime();
         Long seatId = saveSeat(showtime, "A1");
-        Long orderId = holdAtOpening(showtime, seatId);
+        String token = holdAtOpening(showtime, seatId);
         clock.setInstant(JUST_BEFORE_HELD_UNTIL);
-        orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        orderService.confirm(1L, token);
 
         clock.setInstant(HELD_UNTIL.plus(Duration.ofDays(1)));
 
-        assertThatThrownBy(() -> orderService.hold(new CreateOrderRequest(showtime.getId(), 2L, List.of(seatId))))
+        assertThatThrownBy(() -> orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책")))
                 .isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_NOT_AVAILABLE));
-        assertThat(orderStatus(orderId)).isEqualTo("CONFIRMED");
+        assertThat(orderStatus(token)).isEqualTo("CONFIRMED");
         assertThat(seatStatus(seatId)).isEqualTo("SOLD");
     }
 
@@ -117,20 +117,21 @@ class OrderConfirmExpiryTest {
     void confirmingAgainAfterHeldUntilReturnsSameResult() {
         Showtime showtime = createShowtime();
         Long seatId = saveSeat(showtime, "A1");
-        Long orderId = holdAtOpening(showtime, seatId);
+        String token = holdAtOpening(showtime, seatId);
         clock.setInstant(JUST_BEFORE_HELD_UNTIL);
-        OrderResponse first = orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        OrderResponse first = orderService.confirm(1L, token);
 
         clock.setInstant(HELD_UNTIL.plus(Duration.ofDays(1)));
-        OrderResponse second = orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        OrderResponse second = orderService.confirm(1L, token);
 
-        assertThat(second).isEqualTo(first);
+        assertThat(second).usingRecursiveComparison().ignoringFields("serverTime").isEqualTo(first);
         assertThat(seatStatus(seatId)).isEqualTo("SOLD");
     }
 
     private Showtime createShowtime() {
-        Performance performance = performanceRepository.save(Performance.create("확정 만료 테스트 공연"));
-        return showtimeRepository.save(Showtime.create(performance, OPENED_AT.plus(Duration.ofDays(7)),
+        Performance performance = performanceRepository.save(Performance.create("확정 만료 테스트 공연", "테스트 공연장"));
+        Instant startsAt = OPENED_AT.plus(Duration.ofDays(7));
+        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
                 OPENED_AT.minus(Duration.ofHours(1)), 10, 4));
     }
 
@@ -138,13 +139,17 @@ class OrderConfirmExpiryTest {
         return seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, label)).getId();
     }
 
-    private Long holdAtOpening(Showtime showtime, Long seatId) {
+    private String holdAtOpening(Showtime showtime, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(new CreateOrderRequest(showtime.getId(), 1L, List.of(seatId))).orderId();
+        return orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책")).token();
     }
 
-    private String orderStatus(Long orderId) {
-        return jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, orderId);
+    private String orderStatus(String token) {
+        return jdbcTemplate.queryForObject("SELECT status FROM orders WHERE token = ?", String.class, token);
+    }
+
+    private Long orderIdOf(String token) {
+        return jdbcTemplate.queryForObject("SELECT id FROM orders WHERE token = ?", Long.class, token);
     }
 
     private String seatStatus(Long seatId) {

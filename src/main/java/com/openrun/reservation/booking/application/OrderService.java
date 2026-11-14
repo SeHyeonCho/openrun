@@ -4,6 +4,7 @@ import com.openrun.reservation.booking.domain.Order;
 import com.openrun.reservation.booking.domain.OrderOwner;
 import com.openrun.reservation.booking.domain.OrderRepository;
 import com.openrun.reservation.booking.domain.OrderSeat;
+import com.openrun.reservation.booking.domain.OrderSeatCount;
 import com.openrun.reservation.booking.domain.OrderSeatRepository;
 import com.openrun.reservation.booking.domain.Seat;
 import com.openrun.reservation.booking.domain.SeatRepository;
@@ -14,7 +15,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -35,7 +38,7 @@ public class OrderService {
     private final Clock clock;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public OrderResponse hold(CreateOrderRequest request) {
+    public OrderResponse hold(Long buyerId, CreateOrderRequest request) {
         List<Long> seatIds = request.seatIds();
         if (new HashSet<>(seatIds).size() != seatIds.size()) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
@@ -48,8 +51,8 @@ public class OrderService {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
         }
 
-        showtimeBuyerLock.acquire(showtime.getId(), request.userId());
-        long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), request.userId(), now);
+        showtimeBuyerLock.acquire(showtime.getId(), buyerId);
+        long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), buyerId, now);
         if (activeSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_LIMIT_EXCEEDED,
                     "1인 최대 좌석 수(" + showtime.getMaxSeatsPerUser() + "석)를 넘습니다.");
@@ -60,24 +63,45 @@ public class OrderService {
         rejectUnavailableSeats(seats, now);
         expirePreviousOrders(seats, now);
 
-        Order order = orderRepository.save(Order.hold(showtime, request.userId(), now));
+        Order order = orderRepository.save(Order.hold(showtime, buyerId, request.buyerName(), now));
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
-        return OrderResponse.of(order, showtime.getId(), seats);
+        return OrderResponse.of(order, seats.size(), buyerId, now);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse find(String token, Long viewerBuyerId) {
+        Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
+        int quantity = Math.toIntExact(orderSeatRepository.countByOrderId(order.getId()));
+        return OrderResponse.of(order, quantity, viewerBuyerId, clock.instant());
+    }
+
+    @Transactional(readOnly = true)
+    public MyOrdersResponse findMyOrders(Long buyerId) {
+        List<Order> orders = orderRepository.findAllWithShowtimeByBuyerId(buyerId);
+        Instant now = clock.instant();
+        if (orders.isEmpty()) {
+            return new MyOrdersResponse(List.of(), now);
+        }
+        Map<Long, Long> seatCounts = orderSeatRepository.countByOrderIds(orders.stream().map(Order::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(OrderSeatCount::orderId, OrderSeatCount::seatCount));
+        return new MyOrdersResponse(orders.stream()
+                .map(order -> MyOrdersResponse.MyOrder.of(order, Math.toIntExact(seatCounts.get(order.getId())), now))
+                .toList(), now);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public OrderResponse confirm(Long orderId, ConfirmOrderRequest request) {
-        OrderOwner owner = orderRepository.findOwnerById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
-        if (!owner.userId().equals(request.userId())) {
-            throw new OrderConfirmRejectedException(OrderConfirmRejection.ORDER_NOT_OWNED, "다른 구매자의 주문입니다.");
-        }
+    public OrderResponse confirm(Long buyerId, String token) {
+        OrderOwner owner = orderRepository.findOwnerByToken(token)
+                .filter(found -> found.buyerId().equals(buyerId))
+                .orElseThrow(OrderNotFoundException::new);
+        Long orderId = owner.orderId();
 
-        showtimeBuyerLock.acquire(owner.showtimeId(), owner.userId());
+        showtimeBuyerLock.acquire(owner.showtimeId(), owner.buyerId());
         List<Seat> seats = seatRepository.findAllByIdForUpdate(orderSeatRepository.findSeatIdsByOrderId(orderId));
         Order order = orderRepository.findByIdForUpdate(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+                .orElseThrow(OrderNotFoundException::new);
         Instant now = clock.instant();
 
         if (!order.isConfirmed()) {
@@ -87,7 +111,7 @@ public class OrderService {
             order.confirm(now);
             seats.forEach(seat -> seat.confirm(order));
         }
-        return OrderResponse.of(order, owner.showtimeId(), seats);
+        return OrderResponse.of(order, seats.size(), buyerId, now);
     }
 
     private void rejectSeatsOutsideShowtime(Showtime showtime, List<Long> seatIds, List<Seat> seats) {

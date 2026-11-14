@@ -1,6 +1,7 @@
 package com.openrun.reservation.booking.domain;
 
 import com.openrun.reservation.common.entity.BaseEntity;
+import com.openrun.reservation.common.token.RandomToken;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,16 +24,24 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order extends BaseEntity {
 
+    private static final String TOKEN_PREFIX = "o_";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false, length = 40, unique = true)
+    private String token;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "showtime_id", nullable = false)
     private Showtime showtime;
 
     @Column(nullable = false)
-    private Long userId;
+    private Long buyerId;
+
+    @Column(nullable = false, length = 20)
+    private String buyerName;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -41,15 +50,30 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private Instant heldUntil;
 
-    private Order(Showtime showtime, Long userId, OrderStatus status, Instant heldUntil) {
+    private Order(String token, Showtime showtime, Long buyerId, String buyerName, OrderStatus status,
+            Instant heldUntil) {
+        this.token = token;
         this.showtime = showtime;
-        this.userId = userId;
+        this.buyerId = buyerId;
+        this.buyerName = buyerName;
         this.status = status;
         this.heldUntil = heldUntil;
     }
 
-    public static Order hold(Showtime showtime, Long userId, Instant now) {
-        return new Order(showtime, userId, OrderStatus.HELD, showtime.holdDeadlineFrom(now));
+    public static Order hold(Showtime showtime, Long buyerId, String buyerName, Instant now) {
+        return new Order(RandomToken.generate(TOKEN_PREFIX), showtime, buyerId, buyerName, OrderStatus.HELD,
+                showtime.holdDeadlineFrom(now));
+    }
+
+    public OrderStatus statusAt(Instant now) {
+        if (status == OrderStatus.HELD && !now.isBefore(heldUntil)) {
+            return OrderStatus.EXPIRED;
+        }
+        return status;
+    }
+
+    public boolean isOwnedBy(Long buyerId) {
+        return this.buyerId.equals(buyerId);
     }
 
     public void expire() {
