@@ -64,7 +64,7 @@
 
 - 구매자는 카카오 계정으로 로그인한다. 따로 가입하는 절차는 없다
 - 화면은 로그인할 때 `/oauth2/authorization/kakao`로 이동한다. 로그인이 끝나면 서버는 화면으로 돌려보내고, 화면은 이동하기 전에 저장해 둔 경로로 돌아간다
-- 로그인 상태는 서버 세션 쿠키로 유지한다. 쿠키는 `HttpOnly`, `Secure`, `SameSite=Lax`다. 세션 유지 기간은 카카오 로그인 구현 이슈에서 정한다
+- 로그인 상태는 서버 세션 쿠키로 유지한다. 쿠키는 `HttpOnly`, `Secure`, `SameSite=Lax`다. 세션은 마지막 요청부터 5시간 동안 요청이 없으면 끝난다. 이유는 [ADR 0001](../adr/0001-구매자-로그인-방식.md)에 적었다
 - 서버를 여러 대로 늘리면(P6) 세션을 Redis로 옮긴다. API는 바뀌지 않는다
 
 ### CSRF
@@ -542,8 +542,8 @@ GET /api/me/orders
 
 | 구분 | 지금 | 바뀐 뒤 | 구현하는 이슈 |
 |---|---|---|---|
-| 바뀜 | `POST /api/orders` 본문에 `userId`, `seatIds` | 로그인 세션으로 구매자를 알아낸다. 본문은 `showtimeId`, `quantity` 또는 `seatIds`, `buyerName`. `Idempotency-Key` 헤더 | 카카오 로그인, 자유석 자동 배정 |
-| 바뀜 | 선점 응답 `orderId`, `showtimeId`, `status`, `heldUntil`, `seatIds` | 6절의 주문 응답 | 자유석 자동 배정 |
+| 바뀜 | `POST /api/orders` 본문에 `userId`, `seatIds` | 로그인 세션으로 구매자를 알아낸다. 본문은 `showtimeId`, `quantity` 또는 `seatIds`, `buyerName`. `Idempotency-Key` 헤더 | 카카오 로그인(세션의 구매자, `buyerName`), 자유석 자동 배정(`quantity`, `Idempotency-Key`) |
+| 바뀜 | 선점 응답 `orderId`, `showtimeId`, `status`, `heldUntil`, `seatIds` | 6절의 주문 응답 | 카카오 로그인. `entryNumbers`는 자유석 자동 배정이 채우고, 그전까지는 빈 배열이다 |
 | 바뀜 | `POST /api/orders/{orderId}/confirm`, 본문에 `userId` | `POST /api/orders/{token}/confirm`, 본문 없음, 로그인 | 카카오 로그인 |
 | 바뀜 | 다른 구매자의 주문 확정은 `403 ORDER_NOT_OWNED` | `404` | 카카오 로그인 |
 | 바뀜 | 실패 응답에 `serverTime` 없음 | 모든 JSON 응답에 `serverTime` | 공연 페이지 조회 |
