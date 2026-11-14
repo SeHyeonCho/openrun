@@ -2,6 +2,7 @@ package com.openrun.reservation.booking.api;
 
 import static com.openrun.reservation.TestLogin.loginAs;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -49,27 +50,39 @@ class OrderApiTest {
     private SeatRepository seatRepository;
 
     @Test
-    @DisplayName("좌석을 선점하면 주문을 만들고 201과 선점 기한, 좌석 ID 순으로 정렬한 좌석을 반환한다")
+    @DisplayName("좌석을 선점하면 주문을 만들고 201과 주문 토큰, 공연·회차, 좌석 수, 예매자 이름, 선점 기한을 담은 주문을 반환한다")
     void createsOrderHoldingSeats() throws Exception {
         Showtime showtime = openShowtime(4);
         Long first = saveSeat(showtime, "A1").getId();
         Long second = saveSeat(showtime, "A2").getId();
 
-        createOrder(showtime.getId(), 1L, List.of(second, first))
+        createOrder(showtime.getId(), 1L, List.of(second, first), "  밤산책 ")
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.orderId").isNumber())
-                .andExpect(jsonPath("$.showtimeId").value(showtime.getId()))
+                .andExpect(jsonPath("$.token").value(matchesPattern("o_[A-Za-z0-9_-]{22}")))
                 .andExpect(jsonPath("$.status").value("HELD"))
+                .andExpect(jsonPath("$.performance.id").value(showtime.getPerformance().getId()))
+                .andExpect(jsonPath("$.performance.title").value("선점 API 테스트 공연"))
+                .andExpect(jsonPath("$.performance.venue").value("테스트 공연장"))
+                .andExpect(jsonPath("$.showtime.id").value(showtime.getId()))
+                .andExpect(jsonPath("$.showtime.startsAt").isString())
+                .andExpect(jsonPath("$.showtime.endsAt").isString())
+                .andExpect(jsonPath("$.quantity").value(2))
+                .andExpect(jsonPath("$.entryNumbers").isEmpty())
+                .andExpect(jsonPath("$.buyerName").value("밤산책"))
                 .andExpect(jsonPath("$.heldUntil").isString())
-                .andExpect(jsonPath("$.seatIds", contains(first.intValue(), second.intValue())));
+                .andExpect(jsonPath("$.createdAt").isString())
+                .andExpect(jsonPath("$.isOwner").value(true))
+                .andExpect(jsonPath("$.serverTime").isString())
+                .andExpect(jsonPath("$.orderId").doesNotExist());
     }
 
     @Test
     @DisplayName("판매 시작 전에는 SALES_NOT_OPEN으로 거부한다")
     void rejectsBeforeSalesOpen() throws Exception {
-        Performance performance = performanceRepository.save(Performance.create("판매 전 공연"));
+        Performance performance = performanceRepository.save(Performance.create("판매 전 공연", "테스트 공연장"));
         Instant now = Instant.now();
-        Showtime showtime = showtimeRepository.save(Showtime.create(performance, now.plus(Duration.ofDays(7)),
+        Instant startsAt = now.plus(Duration.ofDays(7));
+        Showtime showtime = showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
                 now.plus(Duration.ofDays(1)), 10, 4));
         Long seat = saveSeat(showtime, "A1").getId();
 
@@ -148,10 +161,21 @@ class OrderApiTest {
     }
 
     @Test
+    @DisplayName("예매자 이름이 비었거나 앞뒤 공백을 빼고 20자를 넘으면 400을 반환한다")
+    void rejectsInvalidBuyerName() throws Exception {
+        Showtime showtime = openShowtime(4);
+        Long seat = saveSeat(showtime, "A1").getId();
+
+        createOrder(showtime.getId(), 1L, List.of(seat), "   ").andExpect(status().isBadRequest());
+        createOrder(showtime.getId(), 1L, List.of(seat), "가".repeat(21)).andExpect(status().isBadRequest());
+        createOrder(showtime.getId(), 1L, List.of(seat), " " + "가".repeat(20) + " ").andExpect(status().isCreated());
+    }
+
+    @Test
     @DisplayName("회차가 빠진 선점 요청은 400을 반환한다")
     void rejectsMissingShowtime() throws Exception {
         mockMvc.perform(post("/api/orders").with(loginAs(1L)).with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"seatIds\": [1]}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"seatIds\": [1], \"buyerName\": \"밤산책\"}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -169,18 +193,24 @@ class OrderApiTest {
     }
 
     private ResultActions createOrder(Long showtimeId, Long buyerId, List<Long> seatIds) throws Exception {
+        return createOrder(showtimeId, buyerId, seatIds, "밤산책");
+    }
+
+    private ResultActions createOrder(Long showtimeId, Long buyerId, List<Long> seatIds, String buyerName)
+            throws Exception {
         String seats = seatIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         String body = """
-                {"showtimeId": %d, "seatIds": [%s]}
-                """.formatted(showtimeId, seats);
+                {"showtimeId": %d, "seatIds": [%s], "buyerName": "%s"}
+                """.formatted(showtimeId, seats, buyerName);
         return mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
     private Showtime openShowtime(int maxSeatsPerUser) {
-        Performance performance = performanceRepository.save(Performance.create("선점 API 테스트 공연"));
+        Performance performance = performanceRepository.save(Performance.create("선점 API 테스트 공연", "테스트 공연장"));
         Instant now = Instant.now();
-        return showtimeRepository.save(Showtime.create(performance, now.plus(Duration.ofDays(7)),
+        Instant startsAt = now.plus(Duration.ofDays(7));
+        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
                 now.minus(Duration.ofHours(1)), 10, maxSeatsPerUser));
     }
 

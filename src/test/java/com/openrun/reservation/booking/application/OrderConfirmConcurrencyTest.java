@@ -84,10 +84,10 @@ class OrderConfirmConcurrencyTest {
         for (int round = 0; round < BOUNDARY_ROUNDS; round++) {
             Showtime showtime = createShowtime(4);
             Long seatId = saveSeat(showtime, "A1");
-            Long originalOrderId = holdAtOpening(showtime, 1L, seatId);
+            String originalToken = holdAtOpening(showtime, 1L, seatId);
 
             List<Callable<Outcome>> tasks = new ArrayList<>();
-            tasks.add(() -> arrivingAt(JUST_BEFORE_HELD_UNTIL, () -> confirm(originalOrderId, 1L)));
+            tasks.add(() -> arrivingAt(JUST_BEFORE_HELD_UNTIL, () -> confirm(originalToken, 1L)));
             for (long buyer = 2; buyer < 2 + OTHER_BUYERS; buyer++) {
                 long buyerId = buyer;
                 tasks.add(() -> arrivingAt(HELD_UNTIL, () -> hold(showtime, buyerId, seatId)));
@@ -104,13 +104,13 @@ class OrderConfirmConcurrencyTest {
                     WHERE os.seat_id = %d AND o.status IN ('HELD', 'CONFIRMED')
                     """.formatted(seatId))).isEqualTo(1);
             if (outcomes.getFirst().succeeded()) {
-                assertThat(orderStatus(originalOrderId)).isEqualTo("CONFIRMED");
+                assertThat(orderStatus(originalToken)).isEqualTo("CONFIRMED");
                 assertThat(count("""
                         SELECT COUNT(*) FROM seat
                         WHERE id = %d AND status = 'SOLD' AND current_order_id = %d AND held_until IS NULL
-                        """.formatted(seatId, originalOrderId))).isEqualTo(1);
+                        """.formatted(seatId, orderIdOf(originalToken)))).isEqualTo(1);
             } else {
-                assertThat(orderStatus(originalOrderId)).isEqualTo("EXPIRED");
+                assertThat(orderStatus(originalToken)).isEqualTo("EXPIRED");
                 assertThat(count("""
                         SELECT COUNT(*) FROM seat s JOIN orders o ON o.id = s.current_order_id
                         WHERE s.id = %d AND s.status = 'HELD' AND o.status = 'HELD' AND s.held_until = o.held_until
@@ -126,24 +126,24 @@ class OrderConfirmConcurrencyTest {
         Long first = saveSeat(showtime, "A1");
         Long second = saveSeat(showtime, "A2");
         clock.setInstant(OPENED_AT);
-        Long orderId = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(first, second)))
-                .orderId();
+        String token = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(first, second), "밤산책"))
+                .token();
         clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(1)));
 
         List<Callable<OrderResponse>> tasks = new ArrayList<>();
         for (int i = 0; i < DUPLICATE_CONFIRMS; i++) {
-            tasks.add(() -> orderService.confirm(1L, orderId));
+            tasks.add(() -> orderService.confirm(1L, token));
         }
         List<OrderResponse> responses = runConcurrently(tasks);
 
         assertThat(responses).hasSize(DUPLICATE_CONFIRMS).containsOnly(responses.getFirst());
         assertThat(responses.getFirst().status().name()).isEqualTo("CONFIRMED");
-        assertThat(responses.getFirst().seatIds()).containsExactly(first, second);
-        assertThat(orderStatus(orderId)).isEqualTo("CONFIRMED");
+        assertThat(responses.getFirst().quantity()).isEqualTo(2);
+        assertThat(orderStatus(token)).isEqualTo("CONFIRMED");
         assertThat(count("""
                 SELECT COUNT(*) FROM seat
                 WHERE status = 'SOLD' AND current_order_id = %d AND held_until IS NULL
-                """.formatted(orderId))).isEqualTo(2);
+                """.formatted(orderIdOf(token)))).isEqualTo(2);
         assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo(2);
     }
@@ -153,12 +153,12 @@ class OrderConfirmConcurrencyTest {
     void confirmWaitsForSameBuyerRequest() throws Exception {
         Showtime showtime = createShowtime(4);
         Long seatId = saveSeat(showtime, "A1");
-        Long orderId = holdAtOpening(showtime, 1L, seatId);
+        String token = holdAtOpening(showtime, 1L, seatId);
         clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(1)));
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             LockHolder holder = holdBuyerLock(executor, showtime.getId(), 1L);
-            Future<Outcome> confirm = executor.submit(() -> attempt(() -> confirm(orderId, 1L)));
+            Future<Outcome> confirm = executor.submit(() -> attempt(() -> confirm(token, 1L)));
 
             awaitBuyerLockWait();
             assertThat(confirm.isDone()).isFalse();
@@ -175,19 +175,19 @@ class OrderConfirmConcurrencyTest {
     void confirmJudgesHeldUntilAfterWaitingForLocks() throws Exception {
         Showtime showtime = createShowtime(4);
         Long seatId = saveSeat(showtime, "A1");
-        Long orderId = holdAtOpening(showtime, 1L, seatId);
+        String token = holdAtOpening(showtime, 1L, seatId);
         clock.setInstant(JUST_BEFORE_HELD_UNTIL);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             LockHolder holder = holdBuyerLock(executor, showtime.getId(), 1L);
-            Future<Outcome> confirm = executor.submit(() -> attempt(() -> confirm(orderId, 1L)));
+            Future<Outcome> confirm = executor.submit(() -> attempt(() -> confirm(token, 1L)));
             awaitBuyerLockWait();
 
             clock.setInstant(HELD_UNTIL);
             holder.release();
 
             assertThat(confirm.get(30, TimeUnit.SECONDS).rejection()).isEqualTo("ORDER_EXPIRED");
-            assertThat(orderStatus(orderId)).isEqualTo("HELD");
+            assertThat(orderStatus(token)).isEqualTo("HELD");
             assertThat(count("SELECT COUNT(*) FROM seat WHERE status = 'HELD' AND id = " + seatId)).isEqualTo(1);
         } finally {
             executor.shutdownNow();
@@ -244,12 +244,12 @@ class OrderConfirmConcurrencyTest {
         }
     }
 
-    private void confirm(Long orderId, Long buyerId) {
-        orderService.confirm(buyerId, orderId);
+    private void confirm(String token, Long buyerId) {
+        orderService.confirm(buyerId, token);
     }
 
     private void hold(Showtime showtime, Long buyerId, Long seatId) {
-        orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId)));
+        orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"));
     }
 
     private <T> List<T> runConcurrently(List<Callable<T>> tasks) throws Exception {
@@ -275,8 +275,9 @@ class OrderConfirmConcurrencyTest {
     }
 
     private Showtime createShowtime(int maxSeatsPerUser) {
-        Performance performance = performanceRepository.save(Performance.create("확정 동시성 테스트 공연"));
-        return showtimeRepository.save(Showtime.create(performance, OPENED_AT.plus(Duration.ofDays(7)),
+        Performance performance = performanceRepository.save(Performance.create("확정 동시성 테스트 공연", "테스트 공연장"));
+        Instant startsAt = OPENED_AT.plus(Duration.ofDays(7));
+        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
                 OPENED_AT.minus(Duration.ofHours(1)), 10, maxSeatsPerUser));
     }
 
@@ -284,13 +285,18 @@ class OrderConfirmConcurrencyTest {
         return seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, label)).getId();
     }
 
-    private Long holdAtOpening(Showtime showtime, Long buyerId, Long seatId) {
+    private String holdAtOpening(Showtime showtime, Long buyerId, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId))).orderId();
+        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"))
+                .token();
     }
 
-    private String orderStatus(Long orderId) {
-        return jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, orderId);
+    private String orderStatus(String token) {
+        return jdbcTemplate.queryForObject("SELECT status FROM orders WHERE token = ?", String.class, token);
+    }
+
+    private Long orderIdOf(String token) {
+        return jdbcTemplate.queryForObject("SELECT id FROM orders WHERE token = ?", Long.class, token);
     }
 
     private int count(String sql) {

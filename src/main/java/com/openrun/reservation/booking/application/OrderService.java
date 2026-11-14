@@ -60,22 +60,30 @@ public class OrderService {
         rejectUnavailableSeats(seats, now);
         expirePreviousOrders(seats, now);
 
-        Order order = orderRepository.save(Order.hold(showtime, buyerId, now));
+        Order order = orderRepository.save(Order.hold(showtime, buyerId, request.buyerName(), now));
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
-        return OrderResponse.of(order, showtime.getId(), seats);
+        return OrderResponse.of(order, seats.size(), buyerId, now);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse find(String token, Long viewerBuyerId) {
+        Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
+        int quantity = Math.toIntExact(orderSeatRepository.countByOrderId(order.getId()));
+        return OrderResponse.of(order, quantity, viewerBuyerId, clock.instant());
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public OrderResponse confirm(Long buyerId, Long orderId) {
-        OrderOwner owner = orderRepository.findOwnerById(orderId)
+    public OrderResponse confirm(Long buyerId, String token) {
+        OrderOwner owner = orderRepository.findOwnerByToken(token)
                 .filter(found -> found.buyerId().equals(buyerId))
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+                .orElseThrow(OrderNotFoundException::new);
+        Long orderId = owner.orderId();
 
         showtimeBuyerLock.acquire(owner.showtimeId(), owner.buyerId());
         List<Seat> seats = seatRepository.findAllByIdForUpdate(orderSeatRepository.findSeatIdsByOrderId(orderId));
         Order order = orderRepository.findByIdForUpdate(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+                .orElseThrow(OrderNotFoundException::new);
         Instant now = clock.instant();
 
         if (!order.isConfirmed()) {
@@ -85,7 +93,7 @@ public class OrderService {
             order.confirm(now);
             seats.forEach(seat -> seat.confirm(order));
         }
-        return OrderResponse.of(order, owner.showtimeId(), seats);
+        return OrderResponse.of(order, seats.size(), buyerId, now);
     }
 
     private void rejectSeatsOutsideShowtime(Showtime showtime, List<Long> seatIds, List<Seat> seats) {

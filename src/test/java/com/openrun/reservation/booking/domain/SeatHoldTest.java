@@ -12,8 +12,9 @@ class SeatHoldTest {
 
     private static final Instant NOW = Instant.parse("2026-11-03T10:00:00Z");
 
-    private final Showtime showtime = Showtime.create(Performance.create("도메인 테스트 공연"),
-            NOW.plus(Duration.ofDays(7)), NOW.minus(Duration.ofHours(1)), 10, 4);
+    private final Showtime showtime = Showtime.create(Performance.create("도메인 테스트 공연", "테스트 공연장"),
+            NOW.plus(Duration.ofDays(7)), NOW.plus(Duration.ofDays(7)).plus(Duration.ofHours(2)),
+            NOW.minus(Duration.ofHours(1)), 10, 4);
 
     @Test
     @DisplayName("판매 시작 시각부터 판매가 열린 것으로 본다")
@@ -25,7 +26,7 @@ class SeatHoldTest {
     @Test
     @DisplayName("주문을 만들면 회차의 선점 유지 시간만큼 뒤까지 선점한다")
     void orderHoldsUntilHoldDeadline() {
-        Order order = Order.hold(showtime, 1L, NOW);
+        Order order = Order.hold(showtime, 1L, "밤산책", NOW);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.HELD);
         assertThat(order.getHeldUntil()).isEqualTo(NOW.plus(Duration.ofMinutes(10)));
@@ -35,7 +36,7 @@ class SeatHoldTest {
     @DisplayName("선점 가능한 좌석을 선점하면 주문과 선점 기한을 기록한다")
     void holdsAvailableSeat() {
         Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
-        Order order = Order.hold(showtime, 1L, NOW);
+        Order order = Order.hold(showtime, 1L, "밤산책", NOW);
 
         seat.hold(order, NOW);
 
@@ -49,7 +50,7 @@ class SeatHoldTest {
     void rejectsSeatNotForSale() {
         Seat seat = Seat.notForSale(showtime, SeatType.RESERVED, "A1");
 
-        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 1L, NOW), NOW))
+        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 1L, "밤산책", NOW), NOW))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(seat.getStatus()).isEqualTo(SeatStatus.NOT_FOR_SALE);
     }
@@ -58,10 +59,10 @@ class SeatHoldTest {
     @DisplayName("이미 선점된 좌석은 다른 주문이 선점할 수 없다")
     void rejectsSeatAlreadyHeld() {
         Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
-        Order first = Order.hold(showtime, 1L, NOW);
+        Order first = Order.hold(showtime, 1L, "밤산책", NOW);
         seat.hold(first, NOW);
 
-        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 2L, NOW), NOW))
+        assertThatThrownBy(() -> seat.hold(Order.hold(showtime, 2L, "밤산책", NOW), NOW))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(seat.getCurrentOrder()).isSameAs(first);
     }
@@ -70,7 +71,7 @@ class SeatHoldTest {
     @DisplayName("선점 기한 전에는 만료되지 않고 기한 시각부터 만료된 것으로 본다")
     void holdExpiresFromHeldUntil() {
         Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
-        Order order = Order.hold(showtime, 1L, NOW);
+        Order order = Order.hold(showtime, 1L, "밤산책", NOW);
         seat.hold(order, NOW);
         Instant heldUntil = order.getHeldUntil();
 
@@ -84,10 +85,10 @@ class SeatHoldTest {
     @DisplayName("선점 기한이 지난 좌석은 다른 주문이 다시 선점할 수 있다")
     void holdsExpiredSeatAgain() {
         Seat seat = Seat.forSale(showtime, SeatType.RESERVED, "A1");
-        Order first = Order.hold(showtime, 1L, NOW);
+        Order first = Order.hold(showtime, 1L, "밤산책", NOW);
         seat.hold(first, NOW);
         Instant afterExpiry = first.getHeldUntil();
-        Order second = Order.hold(showtime, 2L, afterExpiry);
+        Order second = Order.hold(showtime, 2L, "밤산책", afterExpiry);
 
         seat.hold(second, afterExpiry);
 
@@ -98,7 +99,7 @@ class SeatHoldTest {
     @Test
     @DisplayName("선점 중인 주문을 만료하면 만료 상태가 되고 다시 만료해도 그대로다")
     void expiresHeldOrder() {
-        Order order = Order.hold(showtime, 1L, NOW);
+        Order order = Order.hold(showtime, 1L, "밤산책", NOW);
 
         order.expire();
         order.expire();

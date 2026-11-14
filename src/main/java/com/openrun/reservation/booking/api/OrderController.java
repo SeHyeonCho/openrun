@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,8 +30,13 @@ public class OrderController {
         return orderService.hold(buyer.id(), request);
     }
 
-    @PostMapping("/{orderId}/confirm")
-    public OrderResponse confirm(@AuthenticationPrincipal LoginBuyer buyer, @PathVariable Long orderId) {
-        return orderService.confirm(buyer.id(), orderId);
+    @GetMapping("/{token}")
+    public OrderResponse find(@AuthenticationPrincipal LoginBuyer buyer, @PathVariable String token) {
+        return orderService.find(token, buyer == null ? null : buyer.id());
+    }
+
+    @PostMapping("/{token}/confirm")
+    public OrderResponse confirm(@AuthenticationPrincipal LoginBuyer buyer, @PathVariable String token) {
+        return orderService.confirm(buyer.id(), token);
     }
 }

@@ -19,6 +19,8 @@ public interface OrderSeatRepository extends JpaRepository<OrderSeat, Long> {
     long countActiveSeats(@Param("showtimeId") Long showtimeId, @Param("buyerId") Long buyerId,
             @Param("now") Instant now);
 
+    long countByOrderId(Long orderId);
+
     @Query("select os.seat.id from OrderSeat os where os.order.id = :orderId order by os.seat.id")
     List<Long> findSeatIdsByOrderId(@Param("orderId") Long orderId);
 }
