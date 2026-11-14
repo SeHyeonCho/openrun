@@ -32,6 +32,9 @@ public class Showtime extends BaseEntity {
     private Instant startsAt;
 
     @Column(nullable = false)
+    private Instant endsAt;
+
+    @Column(nullable = false)
     private Instant salesOpenAt;
 
     @Column(nullable = false)
@@ -40,17 +43,21 @@ public class Showtime extends BaseEntity {
     @Column(nullable = false)
     private int maxSeatsPerUser;
 
-    private Showtime(Performance performance, Instant startsAt, Instant salesOpenAt, int holdMinutes,
+    private Showtime(Performance performance, Instant startsAt, Instant endsAt, Instant salesOpenAt, int holdMinutes,
             int maxSeatsPerUser) {
         this.performance = performance;
         this.startsAt = startsAt;
+        this.endsAt = endsAt;
         this.salesOpenAt = salesOpenAt;
         this.holdMinutes = holdMinutes;
         this.maxSeatsPerUser = maxSeatsPerUser;
     }
 
-    public static Showtime create(Performance performance, Instant startsAt, Instant salesOpenAt, int holdMinutes,
-            int maxSeatsPerUser) {
+    public static Showtime create(Performance performance, Instant startsAt, Instant endsAt, Instant salesOpenAt,
+            int holdMinutes, int maxSeatsPerUser) {
+        if (!startsAt.isBefore(endsAt)) {
+            throw new IllegalArgumentException("공연 종료 시각은 시작 시각보다 뒤여야 한다");
+        }
         if (!salesOpenAt.isBefore(startsAt)) {
             throw new IllegalArgumentException("판매 시작 시각은 공연 시작 시각보다 앞서야 한다");
         }
@@ -60,7 +67,7 @@ public class Showtime extends BaseEntity {
         if (maxSeatsPerUser <= 0) {
             throw new IllegalArgumentException("1인 최대 좌석 수는 0보다 커야 한다");
         }
-        return new Showtime(performance, startsAt, salesOpenAt, holdMinutes, maxSeatsPerUser);
+        return new Showtime(performance, startsAt, endsAt, salesOpenAt, holdMinutes, maxSeatsPerUser);
     }
 
     public boolean isSalesOpenAt(Instant now) {

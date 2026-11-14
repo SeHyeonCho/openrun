@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 public class ShowtimeBuyerLock {
 
     private static final String ACQUIRE = """
-            INSERT INTO showtime_buyer (showtime_id, user_id)
+            INSERT INTO showtime_buyer (showtime_id, buyer_id)
             VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE user_id = user_id
+            ON DUPLICATE KEY UPDATE buyer_id = buyer_id
             """;
 
     private final JdbcTemplate jdbcTemplate;
 
-    public void acquire(Long showtimeId, Long userId) {
-        jdbcTemplate.update(ACQUIRE, showtimeId, userId);
+    public void acquire(Long showtimeId, Long buyerId) {
+        jdbcTemplate.update(ACQUIRE, showtimeId, buyerId);
     }
 }

@@ -46,10 +46,11 @@ class DatabaseCleanerTest {
     @Test
     @DisplayName("커밋된 데이터를 외래 키 순서와 상관없이 모두 지우고 마이그레이션 기록은 남긴다")
     void removesCommittedDataAndKeepsMigrationHistory() {
-        Performance performance = performanceRepository.save(Performance.create("정리 테스트 공연"));
+        Performance performance = performanceRepository.save(Performance.create("정리 테스트 공연", "테스트 공연장"));
         Instant startsAt = Instant.now().plus(Duration.ofDays(7));
         Showtime showtime = showtimeRepository.save(
-                Showtime.create(performance, startsAt, startsAt.minus(Duration.ofDays(3)), 10, 4));
+                Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+                        startsAt.minus(Duration.ofDays(3)), 10, 4));
         seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
 
         databaseCleaner.clean();

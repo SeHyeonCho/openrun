@@ -42,7 +42,7 @@
 ```bash
 # 1. 환경 변수 파일 준비 (필수)
 cp .env.example .env
-# 필요하면 .env 안의 값(비밀번호·포트)을 수정
+# 필요하면 .env 안의 값(비밀번호·포트)을 수정하고, 카카오 앱 키(KAKAO_CLIENT_ID, KAKAO_CLIENT_SECRET)를 채운다
 
 # 2. 인프라(MySQL · Redis) 띄우기
 docker compose up -d
@@ -50,6 +50,7 @@ docker compose up -d
 # 3. IDE에서 애플리케이션 실행
 ```
 - `.env`는 필수다. 없으면 앱이 시작 단계에서 실패한다.
+- 카카오 앱 키는 Kakao Developers에서 앱을 만들고 카카오 로그인을 켠 뒤 받는다. 동의 항목은 닉네임만 쓰고, Redirect URI에 `http://localhost:8080/login/oauth2/code/kakao`를 등록한다. 키가 비어 있으면 앱이 시작 단계에서 실패한다.
 - 실행 프로필 지정: IDE 실행 구성의 Active profiles에 `local`을 지정해야 한다. (또는 VM 옵션 `-Dspring.profiles.active=local`)
 - DB·Redis는 Docker로 띄우고, 애플리케이션은 IDE에서 직접 실행한다.
 - 종료: `docker compose down`

@@ -78,8 +78,8 @@ class SeatQueryApiTest {
         Seat active = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A2"));
         Instant longAgo = Instant.now().minus(Duration.ofHours(1));
         Instant justNow = Instant.now();
-        expired.hold(orderRepository.save(Order.hold(showtime, 1L, longAgo)), longAgo);
-        active.hold(orderRepository.save(Order.hold(showtime, 2L, justNow)), justNow);
+        expired.hold(orderRepository.save(Order.hold(showtime, 1L, "밤산책", longAgo)), longAgo);
+        active.hold(orderRepository.save(Order.hold(showtime, 2L, "밤산책", justNow)), justNow);
         seatRepository.flush();
 
         mockMvc.perform(get("/api/showtimes/{showtimeId}/seats", showtime.getId()))
@@ -96,7 +96,7 @@ class SeatQueryApiTest {
         Showtime showtime = createShowtime();
         Seat seat = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
         Instant longAgo = Instant.now().minus(Duration.ofHours(1));
-        Order order = orderRepository.save(Order.hold(showtime, 1L, longAgo));
+        Order order = orderRepository.save(Order.hold(showtime, 1L, "밤산책", longAgo));
         seat.hold(order, longAgo);
         order.confirm(longAgo);
         seat.confirm(order);
@@ -117,8 +117,9 @@ class SeatQueryApiTest {
     }
 
     private Showtime createShowtime() {
-        Performance performance = performanceRepository.save(Performance.create("조회 테스트 공연"));
+        Performance performance = performanceRepository.save(Performance.create("조회 테스트 공연", "테스트 공연장"));
         Instant startsAt = Instant.now().plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.minus(Duration.ofDays(3)), 10, 4));
+        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+                startsAt.minus(Duration.ofDays(3)), 10, 4));
     }
 }

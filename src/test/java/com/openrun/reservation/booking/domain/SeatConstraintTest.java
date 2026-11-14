@@ -44,7 +44,7 @@ class SeatConstraintTest {
 
     @BeforeEach
     void setUp() {
-        performance = performanceRepository.save(Performance.create("제약 테스트 공연"));
+        performance = performanceRepository.save(Performance.create("제약 테스트 공연", "테스트 공연장"));
     }
 
     @Test
@@ -106,13 +106,14 @@ class SeatConstraintTest {
         Showtime showtime = createShowtime();
         Seat seat = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
         Instant now = Instant.now();
-        seat.hold(orderRepository.save(Order.hold(showtime, 1L, now)), now);
+        seat.hold(orderRepository.save(Order.hold(showtime, 1L, "밤산책", now)), now);
         seatRepository.flush();
         return seat;
     }
 
     private Showtime createShowtime() {
         Instant startsAt = Instant.now().plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.minus(Duration.ofDays(3)), 10, 4));
+        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+                startsAt.minus(Duration.ofDays(3)), 10, 4));
     }
 }
