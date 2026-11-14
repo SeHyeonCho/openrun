@@ -21,6 +21,13 @@ public interface OrderSeatRepository extends JpaRepository<OrderSeat, Long> {
 
     long countByOrderId(Long orderId);
 
+    @Query("""
+            select new com.openrun.reservation.booking.domain.OrderSeatCount(os.order.id, count(os))
+            from OrderSeat os where os.order.id in :orderIds
+            group by os.order.id
+            """)
+    List<OrderSeatCount> countByOrderIds(@Param("orderIds") List<Long> orderIds);
+
     @Query("select os.seat.id from OrderSeat os where os.order.id = :orderId order by os.seat.id")
     List<Long> findSeatIdsByOrderId(@Param("orderId") Long orderId);
 }

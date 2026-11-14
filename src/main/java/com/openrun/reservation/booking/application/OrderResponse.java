@@ -21,13 +21,11 @@ public record OrderResponse(
         Instant serverTime) {
 
     public static OrderResponse of(Order order, int quantity, Long viewerBuyerId, Instant now) {
-        Showtime showtime = order.getShowtime();
-        Performance performance = showtime.getPerformance();
         return new OrderResponse(
                 order.getToken(),
                 order.statusAt(now),
-                new PerformanceSummary(performance.getId(), performance.getTitle(), performance.getVenue()),
-                new ShowtimeSummary(showtime.getId(), showtime.getStartsAt(), showtime.getEndsAt()),
+                PerformanceSummary.of(order.getShowtime().getPerformance()),
+                ShowtimeSummary.of(order.getShowtime()),
                 quantity,
                 List.of(),
                 order.getBuyerName(),
@@ -38,8 +36,16 @@ public record OrderResponse(
     }
 
     public record PerformanceSummary(Long id, String title, String venue) {
+
+        static PerformanceSummary of(Performance performance) {
+            return new PerformanceSummary(performance.getId(), performance.getTitle(), performance.getVenue());
+        }
     }
 
     public record ShowtimeSummary(Long id, Instant startsAt, Instant endsAt) {
+
+        static ShowtimeSummary of(Showtime showtime) {
+            return new ShowtimeSummary(showtime.getId(), showtime.getStartsAt(), showtime.getEndsAt());
+        }
     }
 }

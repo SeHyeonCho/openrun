@@ -4,6 +4,7 @@ import com.openrun.reservation.booking.domain.Order;
 import com.openrun.reservation.booking.domain.OrderOwner;
 import com.openrun.reservation.booking.domain.OrderRepository;
 import com.openrun.reservation.booking.domain.OrderSeat;
+import com.openrun.reservation.booking.domain.OrderSeatCount;
 import com.openrun.reservation.booking.domain.OrderSeatRepository;
 import com.openrun.reservation.booking.domain.Seat;
 import com.openrun.reservation.booking.domain.SeatRepository;
@@ -14,7 +15,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -71,6 +74,21 @@ public class OrderService {
         Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
         int quantity = Math.toIntExact(orderSeatRepository.countByOrderId(order.getId()));
         return OrderResponse.of(order, quantity, viewerBuyerId, clock.instant());
+    }
+
+    @Transactional(readOnly = true)
+    public MyOrdersResponse findMyOrders(Long buyerId) {
+        List<Order> orders = orderRepository.findAllWithShowtimeByBuyerId(buyerId);
+        Instant now = clock.instant();
+        if (orders.isEmpty()) {
+            return new MyOrdersResponse(List.of(), now);
+        }
+        Map<Long, Long> seatCounts = orderSeatRepository.countByOrderIds(orders.stream().map(Order::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(OrderSeatCount::orderId, OrderSeatCount::seatCount));
+        return new MyOrdersResponse(orders.stream()
+                .map(order -> MyOrdersResponse.MyOrder.of(order, Math.toIntExact(seatCounts.get(order.getId())), now))
+                .toList(), now);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
