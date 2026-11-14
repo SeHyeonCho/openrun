@@ -65,7 +65,7 @@ class OrderHoldConcurrencyTest {
         Seat seat = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
 
         List<Outcome> outcomes = runConcurrently(THREADS,
-                i -> new CreateOrderRequest(showtime.getId(), (long) i, List.of(seat.getId())));
+                i -> new HoldAttempt((long) i, new CreateOrderRequest(showtime.getId(), List.of(seat.getId()))));
 
         assertThat(outcomes).filteredOn(Outcome::succeeded).hasSize(1);
         assertThat(outcomes).filteredOn(outcome -> !outcome.succeeded())
@@ -90,8 +90,8 @@ class OrderHoldConcurrencyTest {
         Long first = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
         Long second = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A2")).getId();
 
-        List<Outcome> outcomes = runConcurrently(THREADS, i -> new CreateOrderRequest(showtime.getId(), (long) i,
-                i % 2 == 0 ? List.of(first, second) : List.of(second, first)));
+        List<Outcome> outcomes = runConcurrently(THREADS, i -> new HoldAttempt((long) i, new CreateOrderRequest(
+                showtime.getId(), i % 2 == 0 ? List.of(first, second) : List.of(second, first))));
 
         assertThat(outcomes).filteredOn(Outcome::succeeded).hasSize(1);
         assertThat(outcomes).filteredOn(outcome -> !outcome.succeeded())
@@ -106,13 +106,13 @@ class OrderHoldConcurrencyTest {
     void onlyOneOrderHoldsExpiredSeatAgain() throws Exception {
         Showtime showtime = createShowtime(4);
         Seat seat = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
-        Long expiredOrderId = orderService.hold(new CreateOrderRequest(showtime.getId(), 0L, List.of(seat.getId())))
+        Long expiredOrderId = orderService.hold(0L, new CreateOrderRequest(showtime.getId(), List.of(seat.getId())))
                 .orderId();
         jdbcTemplate.update("UPDATE orders SET held_until = NOW(6) - INTERVAL 1 MINUTE WHERE id = ?", expiredOrderId);
         jdbcTemplate.update("UPDATE seat SET held_until = NOW(6) - INTERVAL 1 MINUTE WHERE id = ?", seat.getId());
 
         List<Outcome> outcomes = runConcurrently(THREADS,
-                i -> new CreateOrderRequest(showtime.getId(), (long) i + 1, List.of(seat.getId())));
+                i -> new HoldAttempt((long) i + 1, new CreateOrderRequest(showtime.getId(), List.of(seat.getId()))));
 
         assertThat(outcomes).filteredOn(Outcome::succeeded).hasSize(1);
         assertThat(outcomes).filteredOn(outcome -> !outcome.succeeded())
@@ -139,7 +139,7 @@ class OrderHoldConcurrencyTest {
         }
 
         List<Outcome> outcomes = runConcurrently(requests,
-                i -> new CreateOrderRequest(showtime.getId(), 1L, List.of(seatIds.get(i))));
+                i -> new HoldAttempt(1L, new CreateOrderRequest(showtime.getId(), List.of(seatIds.get(i)))));
 
         assertThat(outcomes).filteredOn(Outcome::succeeded).hasSize(maxSeatsPerUser);
         assertThat(outcomes).filteredOn(outcome -> !outcome.succeeded())
@@ -147,18 +147,18 @@ class OrderHoldConcurrencyTest {
         assertThat(heldSeatCount(showtime)).isEqualTo(maxSeatsPerUser);
     }
 
-    private List<Outcome> runConcurrently(int threads, IntFunction<CreateOrderRequest> requestFor) throws Exception {
+    private List<Outcome> runConcurrently(int threads, IntFunction<HoldAttempt> attemptFor) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
         CountDownLatch ready = new CountDownLatch(threads);
         CountDownLatch start = new CountDownLatch(1);
         List<Future<Outcome>> futures = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
-            CreateOrderRequest request = requestFor.apply(i);
+            HoldAttempt attempt = attemptFor.apply(i);
             futures.add(executor.submit(() -> {
                 ready.countDown();
                 start.await();
                 try {
-                    orderService.hold(request);
+                    orderService.hold(attempt.buyerId(), attempt.request());
                     return Outcome.success();
                 } catch (SeatHoldRejectedException e) {
                     return Outcome.rejected(e.getRejection());
@@ -188,6 +188,9 @@ class OrderHoldConcurrencyTest {
 
     private int count(String sql) {
         return jdbcTemplate.queryForObject(sql, Integer.class);
+    }
+
+    private record HoldAttempt(Long buyerId, CreateOrderRequest request) {
     }
 
     private record Outcome(boolean succeeded, SeatHoldRejection rejection) {

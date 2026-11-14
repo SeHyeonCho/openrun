@@ -6,6 +6,5 @@ import java.util.List;
 
 public record CreateOrderRequest(
         @NotNull Long showtimeId,
-        @NotNull Long userId,
         @NotEmpty List<@NotNull Long> seatIds) {
 }

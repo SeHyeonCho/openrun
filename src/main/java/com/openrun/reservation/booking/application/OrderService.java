@@ -35,7 +35,7 @@ public class OrderService {
     private final Clock clock;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public OrderResponse hold(CreateOrderRequest request) {
+    public OrderResponse hold(Long buyerId, CreateOrderRequest request) {
         List<Long> seatIds = request.seatIds();
         if (new HashSet<>(seatIds).size() != seatIds.size()) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
@@ -48,8 +48,8 @@ public class OrderService {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
         }
 
-        showtimeBuyerLock.acquire(showtime.getId(), request.userId());
-        long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), request.userId(), now);
+        showtimeBuyerLock.acquire(showtime.getId(), buyerId);
+        long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), buyerId, now);
         if (activeSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_LIMIT_EXCEEDED,
                     "1인 최대 좌석 수(" + showtime.getMaxSeatsPerUser() + "석)를 넘습니다.");
@@ -60,19 +60,17 @@ public class OrderService {
         rejectUnavailableSeats(seats, now);
         expirePreviousOrders(seats, now);
 
-        Order order = orderRepository.save(Order.hold(showtime, request.userId(), now));
+        Order order = orderRepository.save(Order.hold(showtime, buyerId, now));
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
         return OrderResponse.of(order, showtime.getId(), seats);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public OrderResponse confirm(Long orderId, ConfirmOrderRequest request) {
+    public OrderResponse confirm(Long buyerId, Long orderId) {
         OrderOwner owner = orderRepository.findOwnerById(orderId)
+                .filter(found -> found.buyerId().equals(buyerId))
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-        if (!owner.buyerId().equals(request.userId())) {
-            throw new OrderConfirmRejectedException(OrderConfirmRejection.ORDER_NOT_OWNED, "다른 구매자의 주문입니다.");
-        }
 
         showtimeBuyerLock.acquire(owner.showtimeId(), owner.buyerId());
         List<Seat> seats = seatRepository.findAllByIdForUpdate(orderSeatRepository.findSeatIdsByOrderId(orderId));

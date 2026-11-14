@@ -68,7 +68,7 @@ class OrderConfirmExpiryTest {
         Long orderId = holdAtOpening(showtime, seatId);
 
         clock.setInstant(JUST_BEFORE_HELD_UNTIL);
-        OrderResponse confirmed = orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        OrderResponse confirmed = orderService.confirm(1L, orderId);
 
         assertThat(confirmed.status().name()).isEqualTo("CONFIRMED");
         assertThat(orderStatus(orderId)).isEqualTo("CONFIRMED");
@@ -87,7 +87,7 @@ class OrderConfirmExpiryTest {
 
         clock.setInstant(HELD_UNTIL);
 
-        assertThatThrownBy(() -> orderService.confirm(orderId, new ConfirmOrderRequest(1L)))
+        assertThatThrownBy(() -> orderService.confirm(1L, orderId))
                 .isInstanceOfSatisfying(OrderConfirmRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(OrderConfirmRejection.ORDER_EXPIRED));
         assertThat(orderStatus(orderId)).isEqualTo("HELD");
@@ -101,11 +101,11 @@ class OrderConfirmExpiryTest {
         Long seatId = saveSeat(showtime, "A1");
         Long orderId = holdAtOpening(showtime, seatId);
         clock.setInstant(JUST_BEFORE_HELD_UNTIL);
-        orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        orderService.confirm(1L, orderId);
 
         clock.setInstant(HELD_UNTIL.plus(Duration.ofDays(1)));
 
-        assertThatThrownBy(() -> orderService.hold(new CreateOrderRequest(showtime.getId(), 2L, List.of(seatId))))
+        assertThatThrownBy(() -> orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId))))
                 .isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_NOT_AVAILABLE));
         assertThat(orderStatus(orderId)).isEqualTo("CONFIRMED");
@@ -119,10 +119,10 @@ class OrderConfirmExpiryTest {
         Long seatId = saveSeat(showtime, "A1");
         Long orderId = holdAtOpening(showtime, seatId);
         clock.setInstant(JUST_BEFORE_HELD_UNTIL);
-        OrderResponse first = orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        OrderResponse first = orderService.confirm(1L, orderId);
 
         clock.setInstant(HELD_UNTIL.plus(Duration.ofDays(1)));
-        OrderResponse second = orderService.confirm(orderId, new ConfirmOrderRequest(1L));
+        OrderResponse second = orderService.confirm(1L, orderId);
 
         assertThat(second).isEqualTo(first);
         assertThat(seatStatus(seatId)).isEqualTo("SOLD");
@@ -140,7 +140,7 @@ class OrderConfirmExpiryTest {
 
     private Long holdAtOpening(Showtime showtime, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(new CreateOrderRequest(showtime.getId(), 1L, List.of(seatId))).orderId();
+        return orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId))).orderId();
     }
 
     private String orderStatus(Long orderId) {

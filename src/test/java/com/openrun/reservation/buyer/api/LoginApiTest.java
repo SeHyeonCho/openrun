@@ -72,10 +72,9 @@ class LoginApiTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(401));
         mockMvc.perform(post("/api/orders").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"showtimeId\": 1, \"userId\": 1, \"seatIds\": [1]}"))
+                        .content("{\"showtimeId\": 1, \"seatIds\": [1]}"))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/orders/{orderId}/confirm", 1L).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\": 1}"))
+        mockMvc.perform(post("/api/orders/{orderId}/confirm", 1L).with(csrf()))
                 .andExpect(status().isUnauthorized());
 
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders", Integer.class)).isZero();
@@ -85,7 +84,7 @@ class LoginApiTest {
     @DisplayName("CSRF 토큰 없이 상태를 바꾸는 요청을 보내면 403을 반환하고 처리하지 않는다")
     void rejectsRequestsWithoutCsrfToken() throws Exception {
         mockMvc.perform(post("/api/orders").with(loginAs(1L)).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"showtimeId\": 1, \"userId\": 1, \"seatIds\": [1]}"))
+                        .content("{\"showtimeId\": 1, \"seatIds\": [1]}"))
                 .andExpect(status().isForbidden())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(403));

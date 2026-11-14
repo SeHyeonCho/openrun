@@ -89,8 +89,8 @@ class OrderConfirmConcurrencyTest {
             List<Callable<Outcome>> tasks = new ArrayList<>();
             tasks.add(() -> arrivingAt(JUST_BEFORE_HELD_UNTIL, () -> confirm(originalOrderId, 1L)));
             for (long buyer = 2; buyer < 2 + OTHER_BUYERS; buyer++) {
-                long userId = buyer;
-                tasks.add(() -> arrivingAt(HELD_UNTIL, () -> hold(showtime, userId, seatId)));
+                long buyerId = buyer;
+                tasks.add(() -> arrivingAt(HELD_UNTIL, () -> hold(showtime, buyerId, seatId)));
             }
             List<Outcome> outcomes = runConcurrently(tasks);
 
@@ -126,13 +126,13 @@ class OrderConfirmConcurrencyTest {
         Long first = saveSeat(showtime, "A1");
         Long second = saveSeat(showtime, "A2");
         clock.setInstant(OPENED_AT);
-        Long orderId = orderService.hold(new CreateOrderRequest(showtime.getId(), 1L, List.of(first, second)))
+        Long orderId = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(first, second)))
                 .orderId();
         clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(1)));
 
         List<Callable<OrderResponse>> tasks = new ArrayList<>();
         for (int i = 0; i < DUPLICATE_CONFIRMS; i++) {
-            tasks.add(() -> orderService.confirm(orderId, new ConfirmOrderRequest(1L)));
+            tasks.add(() -> orderService.confirm(1L, orderId));
         }
         List<OrderResponse> responses = runConcurrently(tasks);
 
@@ -194,12 +194,12 @@ class OrderConfirmConcurrencyTest {
         }
     }
 
-    private LockHolder holdBuyerLock(ExecutorService executor, Long showtimeId, Long userId) throws Exception {
+    private LockHolder holdBuyerLock(ExecutorService executor, Long showtimeId, Long buyerId) throws Exception {
         CountDownLatch acquired = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         Future<?> transaction = executor.submit(() -> new TransactionTemplate(transactionManager)
                 .executeWithoutResult(status -> {
-                    showtimeBuyerLock.acquire(showtimeId, userId);
+                    showtimeBuyerLock.acquire(showtimeId, buyerId);
                     acquired.countDown();
                     try {
                         release.await();
@@ -244,12 +244,12 @@ class OrderConfirmConcurrencyTest {
         }
     }
 
-    private void confirm(Long orderId, Long userId) {
-        orderService.confirm(orderId, new ConfirmOrderRequest(userId));
+    private void confirm(Long orderId, Long buyerId) {
+        orderService.confirm(buyerId, orderId);
     }
 
-    private void hold(Showtime showtime, Long userId, Long seatId) {
-        orderService.hold(new CreateOrderRequest(showtime.getId(), userId, List.of(seatId)));
+    private void hold(Showtime showtime, Long buyerId, Long seatId) {
+        orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId)));
     }
 
     private <T> List<T> runConcurrently(List<Callable<T>> tasks) throws Exception {
@@ -284,9 +284,9 @@ class OrderConfirmConcurrencyTest {
         return seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, label)).getId();
     }
 
-    private Long holdAtOpening(Showtime showtime, Long userId, Long seatId) {
+    private Long holdAtOpening(Showtime showtime, Long buyerId, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(new CreateOrderRequest(showtime.getId(), userId, List.of(seatId))).orderId();
+        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId))).orderId();
     }
 
     private String orderStatus(Long orderId) {

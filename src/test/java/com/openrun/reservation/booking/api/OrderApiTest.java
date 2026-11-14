@@ -147,12 +147,33 @@ class OrderApiTest {
         createOrder(showtime.getId(), 1L, List.of(seat, seat)).andExpect(status().isBadRequest());
     }
 
-    private ResultActions createOrder(Long showtimeId, Long userId, List<Long> seatIds) throws Exception {
+    @Test
+    @DisplayName("회차가 빠진 선점 요청은 400을 반환한다")
+    void rejectsMissingShowtime() throws Exception {
+        mockMvc.perform(post("/api/orders").with(loginAs(1L)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"seatIds\": [1]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("1인 최대 좌석 수는 회차마다 따로 센다")
+    void countsSeatLimitPerShowtime() throws Exception {
+        Showtime showtime = openShowtime(1);
+        Showtime other = openShowtime(1);
+        createOrder(showtime.getId(), 1L, List.of(saveSeat(showtime, "A1").getId())).andExpect(status().isCreated());
+
+        createOrder(other.getId(), 1L, List.of(saveSeat(other, "A1").getId())).andExpect(status().isCreated());
+        createOrder(showtime.getId(), 1L, List.of(saveSeat(showtime, "A2").getId()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SEAT_LIMIT_EXCEEDED"));
+    }
+
+    private ResultActions createOrder(Long showtimeId, Long buyerId, List<Long> seatIds) throws Exception {
         String seats = seatIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         String body = """
-                {"showtimeId": %d, "userId": %d, "seatIds": [%s]}
-                """.formatted(showtimeId, userId, seats);
-        return mockMvc.perform(post("/api/orders").with(loginAs(userId)).with(csrf())
+                {"showtimeId": %d, "seatIds": [%s]}
+                """.formatted(showtimeId, seats);
+        return mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 

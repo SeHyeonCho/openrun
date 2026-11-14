@@ -139,14 +139,18 @@ class OrderConfirmApiTest {
     }
 
     @Test
-    @DisplayName("다른 구매자의 주문을 확정하면 403 ORDER_NOT_OWNED로 거부한다")
-    void rejectsOrderOfAnotherBuyer() throws Exception {
+    @DisplayName("다른 구매자의 주문을 확정하면 404를 반환하고 주문과 좌석은 선점 상태로 남는다")
+    void hidesOrderOfAnotherBuyer() throws Exception {
         Showtime showtime = openShowtime();
-        Long orderId = holdOrder(showtime.getId(), 1L, List.of(saveSeat(showtime, "A1").getId()));
+        Long seatId = saveSeat(showtime, "A1").getId();
+        Long orderId = holdOrder(showtime.getId(), 1L, List.of(seatId));
 
         confirmOrder(orderId, 2L)
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ORDER_NOT_OWNED"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").doesNotExist());
+
+        assertThat(orderRepository.findById(orderId).orElseThrow().getStatus().name()).isEqualTo("HELD");
+        assertThat(seatRepository.findById(seatId).orElseThrow().getStatus().name()).isEqualTo("HELD");
     }
 
     @Test
@@ -155,15 +159,6 @@ class OrderConfirmApiTest {
         confirmOrder(Long.MAX_VALUE, 1L)
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
-    }
-
-    @Test
-    @DisplayName("구매자 없이 확정을 요청하면 400을 반환한다")
-    void rejectsMissingUserId() throws Exception {
-        mockMvc.perform(post("/api/orders/{orderId}/confirm", 1L).with(loginAs(1L)).with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isBadRequest());
     }
 
     private Showtime openShowtime() {
@@ -186,26 +181,22 @@ class OrderConfirmApiTest {
         return order;
     }
 
-    private Long holdOrder(Long showtimeId, Long userId, List<Long> seatIds) throws Exception {
-        String response = createOrder(showtimeId, userId, seatIds).andExpect(status().isCreated())
+    private Long holdOrder(Long showtimeId, Long buyerId, List<Long> seatIds) throws Exception {
+        String response = createOrder(showtimeId, buyerId, seatIds).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return ((Number) JsonPath.read(response, "$.orderId")).longValue();
     }
 
-    private ResultActions createOrder(Long showtimeId, Long userId, List<Long> seatIds) throws Exception {
+    private ResultActions createOrder(Long showtimeId, Long buyerId, List<Long> seatIds) throws Exception {
         String seats = seatIds.stream().map(String::valueOf).collect(Collectors.joining(","));
-        return mockMvc.perform(post("/api/orders").with(loginAs(userId)).with(csrf())
+        return mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"showtimeId": %d, "userId": %d, "seatIds": [%s]}
-                        """.formatted(showtimeId, userId, seats)));
+                        {"showtimeId": %d, "seatIds": [%s]}
+                        """.formatted(showtimeId, seats)));
     }
 
-    private ResultActions confirmOrder(Long orderId, Long userId) throws Exception {
-        return mockMvc.perform(post("/api/orders/{orderId}/confirm", orderId).with(loginAs(userId)).with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"userId": %d}
-                        """.formatted(userId)));
+    private ResultActions confirmOrder(Long orderId, Long buyerId) throws Exception {
+        return mockMvc.perform(post("/api/orders/{orderId}/confirm", orderId).with(loginAs(buyerId)).with(csrf()));
     }
 }

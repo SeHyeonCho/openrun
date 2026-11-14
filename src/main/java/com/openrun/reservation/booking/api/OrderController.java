@@ -1,12 +1,13 @@
 package com.openrun.reservation.booking.api;
 
-import com.openrun.reservation.booking.application.ConfirmOrderRequest;
 import com.openrun.reservation.booking.application.CreateOrderRequest;
 import com.openrun.reservation.booking.application.OrderResponse;
 import com.openrun.reservation.booking.application.OrderService;
+import com.openrun.reservation.buyer.application.LoginBuyer;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,12 +24,13 @@ public class OrderController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public OrderResponse create(@Valid @RequestBody CreateOrderRequest request) {
-        return orderService.hold(request);
+    public OrderResponse create(@AuthenticationPrincipal LoginBuyer buyer,
+            @Valid @RequestBody CreateOrderRequest request) {
+        return orderService.hold(buyer.id(), request);
     }
 
     @PostMapping("/{orderId}/confirm")
-    public OrderResponse confirm(@PathVariable Long orderId, @Valid @RequestBody ConfirmOrderRequest request) {
-        return orderService.confirm(orderId, request);
+    public OrderResponse confirm(@AuthenticationPrincipal LoginBuyer buyer, @PathVariable Long orderId) {
+        return orderService.confirm(buyer.id(), orderId);
     }
 }
