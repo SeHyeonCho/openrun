@@ -70,11 +70,11 @@ public class OrderService {
     public OrderResponse confirm(Long orderId, ConfirmOrderRequest request) {
         OrderOwner owner = orderRepository.findOwnerById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-        if (!owner.userId().equals(request.userId())) {
+        if (!owner.buyerId().equals(request.userId())) {
             throw new OrderConfirmRejectedException(OrderConfirmRejection.ORDER_NOT_OWNED, "다른 구매자의 주문입니다.");
         }
 
-        showtimeBuyerLock.acquire(owner.showtimeId(), owner.userId());
+        showtimeBuyerLock.acquire(owner.showtimeId(), owner.buyerId());
         List<Seat> seats = seatRepository.findAllByIdForUpdate(orderSeatRepository.findSeatIdsByOrderId(orderId));
         Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));

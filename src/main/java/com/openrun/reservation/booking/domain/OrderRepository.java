@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("""
-            select new com.openrun.reservation.booking.domain.OrderOwner(o.showtime.id, o.userId)
+            select new com.openrun.reservation.booking.domain.OrderOwner(o.showtime.id, o.buyerId)
             from Order o where o.id = :id
             """)
     Optional<OrderOwner> findOwnerById(@Param("id") Long id);

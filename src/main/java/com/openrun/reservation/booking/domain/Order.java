@@ -32,7 +32,7 @@ public class Order extends BaseEntity {
     private Showtime showtime;
 
     @Column(nullable = false)
-    private Long userId;
+    private Long buyerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -41,15 +41,15 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private Instant heldUntil;
 
-    private Order(Showtime showtime, Long userId, OrderStatus status, Instant heldUntil) {
+    private Order(Showtime showtime, Long buyerId, OrderStatus status, Instant heldUntil) {
         this.showtime = showtime;
-        this.userId = userId;
+        this.buyerId = buyerId;
         this.status = status;
         this.heldUntil = heldUntil;
     }
 
-    public static Order hold(Showtime showtime, Long userId, Instant now) {
-        return new Order(showtime, userId, OrderStatus.HELD, showtime.holdDeadlineFrom(now));
+    public static Order hold(Showtime showtime, Long buyerId, Instant now) {
+        return new Order(showtime, buyerId, OrderStatus.HELD, showtime.holdDeadlineFrom(now));
     }
 
     public void expire() {

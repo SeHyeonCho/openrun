@@ -1,7 +1,9 @@
 package com.openrun.reservation.booking.api;
 
+import static com.openrun.reservation.TestLogin.loginAs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -158,7 +160,7 @@ class OrderConfirmApiTest {
     @Test
     @DisplayName("구매자 없이 확정을 요청하면 400을 반환한다")
     void rejectsMissingUserId() throws Exception {
-        mockMvc.perform(post("/api/orders/{orderId}/confirm", 1L)
+        mockMvc.perform(post("/api/orders/{orderId}/confirm", 1L).with(loginAs(1L)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -192,7 +194,7 @@ class OrderConfirmApiTest {
 
     private ResultActions createOrder(Long showtimeId, Long userId, List<Long> seatIds) throws Exception {
         String seats = seatIds.stream().map(String::valueOf).collect(Collectors.joining(","));
-        return mockMvc.perform(post("/api/orders")
+        return mockMvc.perform(post("/api/orders").with(loginAs(userId)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"showtimeId": %d, "userId": %d, "seatIds": [%s]}
@@ -200,7 +202,7 @@ class OrderConfirmApiTest {
     }
 
     private ResultActions confirmOrder(Long orderId, Long userId) throws Exception {
-        return mockMvc.perform(post("/api/orders/{orderId}/confirm", orderId)
+        return mockMvc.perform(post("/api/orders/{orderId}/confirm", orderId).with(loginAs(userId)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"userId": %d}

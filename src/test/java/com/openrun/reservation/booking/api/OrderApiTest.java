@@ -1,6 +1,8 @@
 package com.openrun.reservation.booking.api;
 
+import static com.openrun.reservation.TestLogin.loginAs;
 import static org.hamcrest.Matchers.contains;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -150,7 +152,8 @@ class OrderApiTest {
         String body = """
                 {"showtimeId": %d, "userId": %d, "seatIds": [%s]}
                 """.formatted(showtimeId, userId, seats);
-        return mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body));
+        return mockMvc.perform(post("/api/orders").with(loginAs(userId)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
     private Showtime openShowtime(int maxSeatsPerUser) {
