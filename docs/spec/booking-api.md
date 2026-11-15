@@ -247,7 +247,7 @@ GET /api/showtimes/12/availability
 | `performance` | object | `id`, `title`, `venue` |
 | `showtime` | object | `id`, `startsAt`, `endsAt` |
 | `quantity` | number | 좌석 수 |
-| `entryNumbers` | number[] | 자유석의 입장번호. 오름차순이다. 지정석의 좌석 표시는 좌석 배치(P3)와 함께 정한다 |
+| `entryNumbers` | number[] | 자유석 주문이 확정될 때 받은 입장번호. 오름차순이고 이어진 번호다. 확정하지 않은 주문(선점 중, 만료, 취소)과 지정석 주문은 빈 배열이다. 지정석의 좌석 표시는 좌석 배치(P3)와 함께 정한다 |
 | `buyerName` | string | 예매자 이름 |
 | `heldUntil` | string | 선점 기한. 확정한 뒤에도 원래 기한을 그대로 준다 |
 | `createdAt` | string | 선점한 시각 |
@@ -261,7 +261,7 @@ GET /api/showtimes/12/availability
   "performance": { "id": 1, "title": "NIGHT SIGNAL", "venue": "홍대 라이브홀 B2" },
   "showtime": { "id": 12, "startsAt": "2026-12-05T10:00:00Z", "endsAt": "2026-12-05T12:30:00Z" },
   "quantity": 2,
-  "entryNumbers": [37, 38],
+  "entryNumbers": [],
   "buyerName": "밤산책",
   "heldUntil": "2026-11-20T11:10:03.218000Z",
   "createdAt": "2026-11-20T11:00:03.218000Z",
@@ -282,7 +282,7 @@ GET /api/showtimes/12/availability
 | `buyerName` | string | 예매자 이름. 앞뒤 공백을 빼고 1~20자다 |
 
 - 자유석 회차는 `quantity`만, 지정석 회차는 `seatIds`만 보낸다. 둘 다 보내거나 둘 다 없으면 `400`이다
-- 자유석은 남은 입장번호 가운데 가장 앞 번호부터 배정한다
+- 자유석은 남은 좌석 가운데 요청한 수만큼을 잡는다. 입장번호는 이때 주지 않고 확정할 때 준다([기능 명세](booking-flow.md) 7절 "자유석 재고와 입장번호")
 
 ```http
 POST /api/orders
@@ -339,7 +339,8 @@ GET /api/orders/o_Vx3k9QmT2pLw8RzA1nYc5d
 
 선점을 확정한다. 이번 단계에는 결제가 없어서 이 요청이 결제를 대신한다. 결제(P2)가 들어오면 결제 성공이 확정을 대신 부른다. 주문을 만든 구매자만 할 수 있고, CSRF 토큰이 필요하다. 요청 본문은 없다.
 
-- 이미 확정한 주문을 다시 확정하면 같은 응답(`200`)을 돌려주고 아무것도 바꾸지 않는다. 그래서 결과를 모를 때 같은 주문으로 다시 보내도 된다
+- 자유석 주문은 확정할 때 입장번호를 받는다. 회차마다 확정한 순서대로 다음 번호를 주고, 한 주문의 여러 장은 이어진 번호다
+- 이미 확정한 주문을 다시 확정하면 같은 응답(`200`)을 돌려주고 아무것도 바꾸지 않는다. 입장번호도 처음 받은 그대로다. 그래서 결과를 모를 때 같은 주문으로 다시 보내도 된다
 
 ```http
 POST /api/orders/o_Vx3k9QmT2pLw8RzA1nYc5d/confirm
@@ -352,6 +353,7 @@ X-XSRF-TOKEN: 4b1c...
 {
   "token": "o_Vx3k9QmT2pLw8RzA1nYc5d",
   "status": "CONFIRMED",
+  "entryNumbers": [37, 38],
   "heldUntil": "2026-11-20T11:10:03.218000Z",
   "isOwner": true,
   "serverTime": "2026-11-20T11:02:41.007000Z"
@@ -534,7 +536,7 @@ GET /api/me/orders
 | 모든 화면 | 로그인 상태, 닉네임 | `GET /api/me`의 상태 코드와 `nickname` |
 | 수량 선택 | 남은 수, 이 회차에서 이미 가진 수 | `GET /api/showtimes/{id}/availability`의 `remaining`, `ownedCount` |
 | 내 주문 | 주문 목록 | `GET /api/me/orders`의 `orders` |
-| 주문 | 주문 상태, 입장번호, 회차 정보, 선점 기한, 서버 현재 시각, 주문 토큰, 보는 사람이 주문을 만든 구매자인지 | 주문 응답의 `status`, `entryNumbers`, `showtime`, `heldUntil`, `serverTime`, `token`, `isOwner` |
+| 주문 | 주문 상태, 수량, 입장번호(확정한 주문만), 회차 정보, 선점 기한, 서버 현재 시각, 주문 토큰, 보는 사람이 주문을 만든 구매자인지 | 주문 응답의 `status`, `quantity`, `entryNumbers`, `showtime`, `heldUntil`, `serverTime`, `token`, `isOwner` |
 
 기능 명세 6절과 7절의 실패 상황은 2절 공통 실패와 7절 표에 모두 있다. 6절의 `403 ORDER_NOT_OWNED`는 7절 결정대로 `404`로 바뀌었다.
 
@@ -543,7 +545,7 @@ GET /api/me/orders
 | 구분 | 지금 | 바뀐 뒤 | 구현하는 이슈 |
 |---|---|---|---|
 | 바뀜 | `POST /api/orders` 본문에 `userId`, `seatIds` | 로그인 세션으로 구매자를 알아낸다. 본문은 `showtimeId`, `quantity` 또는 `seatIds`, `buyerName`. `Idempotency-Key` 헤더 | 카카오 로그인(세션의 구매자, `buyerName`), 자유석 자동 배정(`quantity`, `Idempotency-Key`) |
-| 바뀜 | 선점 응답 `orderId`, `showtimeId`, `status`, `heldUntil`, `seatIds` | 6절의 주문 응답 | 카카오 로그인. `entryNumbers`는 자유석 자동 배정이 채우고, 그전까지는 빈 배열이다 |
+| 바뀜 | 선점 응답 `orderId`, `showtimeId`, `status`, `heldUntil`, `seatIds` | 6절의 주문 응답 | 카카오 로그인. `entryNumbers`는 자유석 자동 배정이 들어오면 확정한 자유석 주문에서 채우고, 그전까지는 늘 빈 배열이다 |
 | 바뀜 | `POST /api/orders/{orderId}/confirm`, 본문에 `userId` | `POST /api/orders/{token}/confirm`, 본문 없음, 로그인 | 카카오 로그인 |
 | 바뀜 | 다른 구매자의 주문 확정은 `403 ORDER_NOT_OWNED` | `404` | 카카오 로그인 |
 | 바뀜 | 실패 응답에 `serverTime` 없음 | 모든 JSON 응답에 `serverTime` | 공연 페이지 조회 |
@@ -568,6 +570,7 @@ GET /api/me/orders
 | 주문 응답과 내 주문 목록 안의 `show` 객체 | `performance` 객체. 안의 필드(`id`, `title`, `venue`)는 같다 |
 | 선점 유지 시간 `holdMinutes`를 공연 응답에 둠 | 회차(`showtimes[]`)마다 둔다 |
 | 자유석의 좌석 종류 값 `FREE` | `GENERAL`. 서버 코드와 DB가 쓰는 값이다 |
+| 선점 중인 주문에도 입장번호를 보여 줌 | 입장번호는 확정한 주문에만 있다. 선점 중에는 수량과 "확정하면 입장번호가 나온다"는 안내를 보여 준다 |
 | `GET /api/me`에 `nickname`만 | `buyerId` 추가 |
 | 목 로그인(`/api/auth/mock-login`) | `/oauth2/authorization/kakao` 이동, `POST /api/logout` |
 | CSRF 헤더 없음 | `POST`에 `X-XSRF-TOKEN` |
