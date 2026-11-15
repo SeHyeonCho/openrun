@@ -23,6 +23,10 @@ reviews:
     - '!**/generated/**'
     - '!**/package-lock.json'
     - '!frontend/public/mockServiceWorker.js'
+    - '!frontend/dist/**'
+    - '!gradlew'
+    - '!gradlew.bat'
+    - '!gradle/wrapper/**'
   path_instructions:
     - path: '**/*.java'
       instructions: |-
