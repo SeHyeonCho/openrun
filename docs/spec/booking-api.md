@@ -531,10 +531,11 @@ GET /api/me/orders
 | 화면 | 필요한 데이터 | API와 필드 |
 |---|---|---|
 | 공연 페이지 | 공연 제목·장소 | `GET /api/performances/{id}`의 `title`, `venue` |
-| 공연 페이지 | 회차 목록(공연 시작·종료, 판매 시작·마감, 좌석 종류, 판매 상태, 남은 수, 1인 최대 좌석 수) | 같은 응답의 `showtimes[]` |
+| 공연 페이지 | 회차 목록(공연 시작·종료, 판매 시작·마감, 선점 유지 시간, 좌석 종류, 판매 상태, 남은 수, 1인 최대 좌석 수) | 같은 응답의 `showtimes[]`. 선점 유지 시간은 `holdMinutes`다 |
 | 공연 페이지 | 서버 현재 시각 | `serverTime` |
 | 모든 화면 | 로그인 상태, 닉네임 | `GET /api/me`의 상태 코드와 `nickname` |
 | 수량 선택 | 남은 수, 이 회차에서 이미 가진 수 | `GET /api/showtimes/{id}/availability`의 `remaining`, `ownedCount` |
+| 수량 선택 | 고른 회차의 선점 유지 시간 | `GET /api/performances/{id}`의 `showtimes[]`에서 고른 회차의 `holdMinutes` |
 | 내 주문 | 주문 목록 | `GET /api/me/orders`의 `orders` |
 | 주문 | 주문 상태, 수량, 입장번호(확정한 주문만), 회차 정보, 선점 기한, 서버 현재 시각, 주문 토큰, 보는 사람이 주문을 만든 구매자인지 | 주문 응답의 `status`, `quantity`, `entryNumbers`, `showtime`, `heldUntil`, `serverTime`, `token`, `isOwner` |
 
