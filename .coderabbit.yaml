@@ -3,7 +3,8 @@ language: ko-KR
 tone_instructions: '시니어 백엔드 엔지니어 관점에서 리뷰한다. 동시성·정합성·트랜잭션 경계를 특히 깐깐하게 분석하고, 단순 칭찬보다 구체적인 문제점과 근거·대안을 제시한다. 연결된 이슈의 마일스톤 범위를 넘는 기능이나 인프라는 요구하지 않고 별도 이슈 후보로만 언급한다.'
 reviews:
   profile: assertive
-  request_changes_workflow: true
+  auto_approvals:
+    enabled: true
   high_level_summary: false
   pre_merge_checks:
     docstrings:
