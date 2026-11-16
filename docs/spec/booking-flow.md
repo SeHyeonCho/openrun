@@ -266,7 +266,7 @@ stateDiagram-v2
 | 취소한 주문 확정 | 409 | `ORDER_CANCELLED` |
 | 확정한 주문 취소 | 409 | `ORDER_CONFIRMED` |
 | 기한이 지났거나 만료된 주문 취소 | 409 | `ORDER_EXPIRED` |
-| 자유석 남은 수보다 많이 요청 | 409 | `SEAT_NOT_AVAILABLE` |
+| 자유석에서 요청한 수만큼 잡지 못함(남은 수가 모자라거나, 다른 요청이 처리 중인 좌석을 건너뛴 경우) | 409 | `SEAT_NOT_AVAILABLE` |
 | 로그인하지 않고 선점·확정·취소·내 주문 조회 | 401 | 없음 |
 
 ## 8. 화면 구조

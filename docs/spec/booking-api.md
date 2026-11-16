@@ -306,7 +306,7 @@ X-XSRF-TOKEN: 4b1c...
 | 판매 시작 전 | 409 | `SALES_NOT_OPEN` |
 | 판매 마감 뒤 | 409 | `SALES_CLOSED` |
 | 1인 최대 좌석 수 초과 | 409 | `SEAT_LIMIT_EXCEEDED` |
-| 자유석 남은 수보다 많이 요청, 지정석이 선점 중·판매 완료·판매 제외 | 409 | `SEAT_NOT_AVAILABLE` (지정석이면 `seatIds`) |
+| 자유석에서 요청한 수만큼 잡지 못함(남은 수가 모자라거나, 다른 요청이 처리 중인 좌석을 건너뛴 경우), 지정석이 선점 중·판매 완료·판매 제외 | 409 | `SEAT_NOT_AVAILABLE` (지정석이면 `seatIds`) |
 | 회차에 없는 지정석 포함 | 409 | `SEAT_NOT_IN_SHOWTIME` (`seatIds`) |
 | 같은 식별자를 다른 내용으로 보냄 | 422 | `IDEMPOTENCY_KEY_REUSED` |
 
