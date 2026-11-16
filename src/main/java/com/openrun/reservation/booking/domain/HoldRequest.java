@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
@@ -22,6 +23,7 @@ import lombok.NoArgsConstructor;
 public class HoldRequest extends BaseEntity {
 
     private static final String SEPARATOR = ",";
+    private static final Duration RETENTION = Duration.ofHours(24);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -78,6 +80,10 @@ public class HoldRequest extends BaseEntity {
                 && Objects.equals(this.quantity, quantity)
                 && Objects.equals(this.seatIds, join(seatIds))
                 && this.buyerName.equals(buyerName);
+    }
+
+    public boolean isExpiredAt(Instant now) {
+        return !now.isBefore(recordedAt.plus(RETENTION));
     }
 
     public void accept(Long orderId) {

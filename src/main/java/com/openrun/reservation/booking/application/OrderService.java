@@ -56,7 +56,11 @@ public class OrderService {
         String key = idempotencyKey.toString();
         Optional<HoldRequest> recorded = holdRequestRepository.findByBuyerIdAndIdempotencyKey(buyerId, key);
         if (recorded.isPresent()) {
-            return replay(recorded.get(), request, buyerId, now);
+            if (!recorded.get().isExpiredAt(now)) {
+                return replay(recorded.get(), request, buyerId, now);
+            }
+            holdRequestRepository.delete(recorded.get());
+            holdRequestRepository.flush();
         }
 
         Showtime showtime = showtimeRepository.findById(request.showtimeId())
