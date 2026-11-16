@@ -20,14 +20,15 @@ public record OrderResponse(
         boolean isOwner,
         Instant serverTime) {
 
-    public static OrderResponse of(Order order, int quantity, Long viewerBuyerId, Instant now) {
+    public static OrderResponse of(Order order, int quantity, List<Integer> entryNumbers, Long viewerBuyerId,
+            Instant now) {
         return new OrderResponse(
                 order.getToken(),
                 order.statusAt(now),
                 PerformanceSummary.of(order.getShowtime().getPerformance()),
                 ShowtimeSummary.of(order.getShowtime()),
                 quantity,
-                List.of(),
+                entryNumbers,
                 order.getBuyerName(),
                 order.getHeldUntil(),
                 order.getCreatedAt(),
