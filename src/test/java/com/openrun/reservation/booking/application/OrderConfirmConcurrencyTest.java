@@ -126,7 +126,7 @@ class OrderConfirmConcurrencyTest {
         Long first = saveSeat(showtime, "A1");
         Long second = saveSeat(showtime, "A2");
         clock.setInstant(OPENED_AT);
-        String token = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(first, second), "밤산책"))
+        String token = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(first, second), null, "밤산책"))
                 .token();
         clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(1)));
 
@@ -249,7 +249,7 @@ class OrderConfirmConcurrencyTest {
     }
 
     private void hold(Showtime showtime, Long buyerId, Long seatId) {
-        orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"));
+        orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"));
     }
 
     private <T> List<T> runConcurrently(List<Callable<T>> tasks) throws Exception {
@@ -288,7 +288,7 @@ class OrderConfirmConcurrencyTest {
 
     private String holdAtOpening(Showtime showtime, Long buyerId, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"))
+        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"))
                 .token();
     }
 

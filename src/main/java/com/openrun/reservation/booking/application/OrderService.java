@@ -39,13 +39,14 @@ public class OrderService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public OrderResponse hold(Long buyerId, CreateOrderRequest request) {
-        List<Long> seatIds = request.seatIds();
-        if (new HashSet<>(seatIds).size() != seatIds.size()) {
-            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
-                    ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "같은 좌석을 두 번 요청할 수 없습니다."), null);
-        }
+        rejectInvalidSeatChoice(request);
         Showtime showtime = showtimeRepository.findById(request.showtimeId())
                 .orElseThrow(() -> new ShowtimeNotFoundException(request.showtimeId()));
+        if (showtime.isGeneralAdmission() != request.choosesQuantity()) {
+            throw badRequest(showtime.isGeneralAdmission()
+                    ? "자유석 회차는 좌석 대신 수량(quantity)으로 선점합니다."
+                    : "지정석 회차는 수량 대신 좌석(seatIds)으로 선점합니다.");
+        }
         Instant now = clock.instant();
         if (!showtime.isSalesOpenAt(now)) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
@@ -53,14 +54,14 @@ public class OrderService {
 
         showtimeBuyerLock.acquire(showtime.getId(), buyerId);
         long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), buyerId, now);
-        if (activeSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
+        if (activeSeats + request.requestedSeatCount() > showtime.getMaxSeatsPerUser()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_LIMIT_EXCEEDED,
                     "1인 최대 좌석 수(" + showtime.getMaxSeatsPerUser() + "석)를 넘습니다.");
         }
 
-        List<Seat> seats = seatRepository.findAllByIdForUpdate(seatIds);
-        rejectSeatsOutsideShowtime(showtime, seatIds, seats);
-        rejectUnavailableSeats(seats, now);
+        List<Seat> seats = request.choosesQuantity()
+                ? lockGeneralSeats(showtime, request.quantity(), now)
+                : lockReservedSeats(showtime, request.seatIds(), now);
         expirePreviousOrders(seats, now);
 
         Order order = orderRepository.save(Order.hold(showtime, buyerId, request.buyerName(), now));
@@ -112,6 +113,36 @@ public class OrderService {
             seats.forEach(seat -> seat.confirm(order));
         }
         return OrderResponse.of(order, seats.size(), buyerId, now);
+    }
+
+    private void rejectInvalidSeatChoice(CreateOrderRequest request) {
+        List<Long> seatIds = request.seatIds();
+        if ((seatIds == null) == (request.quantity() == null)) {
+            throw badRequest("좌석(seatIds)과 수량(quantity) 가운데 하나만 보내야 합니다.");
+        }
+        if (seatIds != null && (seatIds.isEmpty() || new HashSet<>(seatIds).size() != seatIds.size())) {
+            throw badRequest("좌석 목록이 비었거나 같은 좌석이 두 번 있습니다.");
+        }
+    }
+
+    private List<Seat> lockGeneralSeats(Showtime showtime, int quantity, Instant now) {
+        List<Seat> seats = seatRepository.findHoldableGeneralSeatsForUpdate(showtime.getId(), now, quantity);
+        if (seats.size() < quantity) {
+            throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_NOT_AVAILABLE, "남은 좌석이 요청한 수량보다 적습니다.");
+        }
+        return seats;
+    }
+
+    private List<Seat> lockReservedSeats(Showtime showtime, List<Long> seatIds, Instant now) {
+        List<Seat> seats = seatRepository.findAllByIdForUpdate(seatIds);
+        rejectSeatsOutsideShowtime(showtime, seatIds, seats);
+        rejectUnavailableSeats(seats, now);
+        return seats;
+    }
+
+    private ErrorResponseException badRequest(String detail) {
+        return new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail), null);
     }
 
     private void rejectSeatsOutsideShowtime(Showtime showtime, List<Long> seatIds, List<Seat> seats) {

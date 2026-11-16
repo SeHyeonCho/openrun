@@ -6,6 +6,10 @@ spring:
     problemdetails:
       enabled: true
 
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+
   jpa:
     open-in-view: false
     properties:
