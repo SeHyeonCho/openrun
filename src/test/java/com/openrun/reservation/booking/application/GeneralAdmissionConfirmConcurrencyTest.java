@@ -90,6 +90,11 @@ class GeneralAdmissionConfirmConcurrencyTest {
         assertThat(count("SELECT COUNT(*) FROM order_entry_number")).isEqualTo(ORDERS * QUANTITY);
         assertThat(count("SELECT last_number FROM showtime_entry_sequence WHERE showtime_id = " + showtime.getId()))
                 .isEqualTo(ORDERS * QUANTITY);
+        assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo(ORDERS);
+        assertThat(count("SELECT COUNT(*) FROM orders WHERE status = 'CONFIRMED'")).isEqualTo(ORDERS);
+        assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo(ORDERS * QUANTITY);
+        assertThat(soldSeatsOwnedByTheirOrder()).isEqualTo(ORDERS * QUANTITY);
+        assertThat(count("SELECT COUNT(*) FROM seat WHERE status <> 'SOLD'")).isZero();
     }
 
     @Test
@@ -109,6 +114,30 @@ class GeneralAdmissionConfirmConcurrencyTest {
         assertThat(count("SELECT COUNT(*) FROM order_entry_number")).isEqualTo(3);
         assertThat(count("SELECT last_number FROM showtime_entry_sequence WHERE showtime_id = " + showtime.getId()))
                 .isEqualTo(3);
+        assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo(2);
+        assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo(4);
+        assertThat(count("SELECT COUNT(*) FROM orders WHERE buyer_id = 1 AND status = 'CONFIRMED'")).isEqualTo(1);
+        assertThat(soldSeatsOwnedByTheirOrder()).isEqualTo(3);
+        assertThat(count("""
+                SELECT COUNT(*) FROM seat s
+                JOIN order_seat os ON os.seat_id = s.id
+                JOIN orders o ON o.id = os.order_id
+                WHERE o.buyer_id = 9 AND o.status = 'HELD'
+                  AND s.status = 'HELD' AND s.current_order_id = o.id AND s.held_until = o.held_until
+                """)).isEqualTo(1);
+        assertThat(count("""
+                SELECT COUNT(*) FROM order_entry_number e JOIN orders o ON o.id = e.order_id WHERE o.buyer_id = 9
+                """)).isZero();
+    }
+
+    private int soldSeatsOwnedByTheirOrder() {
+        return count("""
+                SELECT COUNT(*) FROM seat s
+                JOIN order_seat os ON os.seat_id = s.id
+                JOIN orders o ON o.id = os.order_id
+                WHERE s.status = 'SOLD' AND s.current_order_id = o.id AND s.held_until IS NULL
+                  AND o.status = 'CONFIRMED'
+                """);
     }
 
     private OrderResponse holdGeneral(Showtime showtime, Long buyerId, int quantity) {

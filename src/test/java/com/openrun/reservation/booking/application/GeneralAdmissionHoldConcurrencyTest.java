@@ -88,6 +88,16 @@ class GeneralAdmissionHoldConcurrencyTest {
                 SELECT COUNT(*) FROM seat s JOIN orders o ON o.id = s.current_order_id
                 WHERE s.status = 'HELD' AND s.held_until = o.held_until
                 """)).isEqualTo(heldBySuccesses);
+        assertThat(count("""
+                SELECT COUNT(*) FROM order_seat os JOIN seat s ON s.id = os.seat_id
+                WHERE s.current_order_id IS NULL OR s.current_order_id <> os.order_id
+                """)).isZero();
+        assertThat(count("""
+                SELECT COUNT(*) FROM seat s
+                WHERE s.status = 'HELD'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM order_seat os WHERE os.seat_id = s.id AND os.order_id = s.current_order_id)
+                """)).isZero();
     }
 
     private List<Attempt> runConcurrently(Showtime showtime) throws Exception {
