@@ -2,6 +2,7 @@ package com.openrun.reservation.booking.application;
 
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -11,6 +12,12 @@ public class HoldService {
     private final OrderService orderService;
 
     public OrderResponse hold(Long buyerId, UUID idempotencyKey, CreateOrderRequest request) {
-        return orderService.hold(buyerId, idempotencyKey, request).orThrow();
+        HoldOutcome outcome;
+        try {
+            outcome = orderService.hold(buyerId, idempotencyKey, request);
+        } catch (DataIntegrityViolationException e) {
+            outcome = orderService.replayRecordedHold(buyerId, idempotencyKey, request).orElseThrow(() -> e);
+        }
+        return outcome.orThrow();
     }
 }

@@ -84,6 +84,13 @@ public class OrderService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public Optional<HoldOutcome> replayRecordedHold(Long buyerId, UUID idempotencyKey, CreateOrderRequest request) {
+        Instant now = clock.instant();
+        return holdRequestRepository.findByBuyerIdAndIdempotencyKey(buyerId, idempotencyKey.toString())
+                .map(recorded -> replay(recorded, request, buyerId, now));
+    }
+
     private HoldOutcome replay(HoldRequest recorded, CreateOrderRequest request, Long buyerId, Instant now) {
         if (!recorded.hasSameContent(request.showtimeId(), request.quantity(), request.seatIds(),
                 request.buyerName())) {
