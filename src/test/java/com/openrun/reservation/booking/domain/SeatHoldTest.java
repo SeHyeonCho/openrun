@@ -12,7 +12,7 @@ class SeatHoldTest {
 
     private static final Instant NOW = Instant.parse("2026-11-03T10:00:00Z");
 
-    private final Showtime showtime = Showtime.create(Performance.create("도메인 테스트 공연", "테스트 공연장"),
+    private final Showtime showtime = Showtime.create(Performance.create("도메인 테스트 공연", "테스트 공연장"), SeatType.RESERVED,
             NOW.plus(Duration.ofDays(7)), NOW.plus(Duration.ofDays(7)).plus(Duration.ofHours(2)),
             NOW.minus(Duration.ofHours(1)), 10, 4);
 

@@ -64,16 +64,16 @@ class OrderHoldExpiryTest {
         Showtime showtime = createShowtime();
         Long seatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
         clock.setInstant(OPENED_AT);
-        OrderResponse first = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"));
+        OrderResponse first = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"));
         Instant heldUntil = OPENED_AT.plus(Duration.ofMinutes(HOLD_MINUTES));
 
         clock.setInstant(heldUntil.minusNanos(1));
-        assertThatThrownBy(() -> orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책")))
+        assertThatThrownBy(() -> orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책")))
                 .isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_NOT_AVAILABLE));
 
         clock.setInstant(heldUntil);
-        OrderResponse second = orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"));
+        OrderResponse second = orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"));
 
         assertThat(orderStatus(first.token())).isEqualTo("EXPIRED");
         assertThat(orderStatus(second.token())).isEqualTo("HELD");
@@ -88,10 +88,10 @@ class OrderHoldExpiryTest {
         Showtime showtime = createShowtime();
         Long seatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
         clock.setInstant(OPENED_AT);
-        OrderResponse first = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"));
+        OrderResponse first = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"));
 
         clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(HOLD_MINUTES)));
-        OrderResponse second = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책"));
+        OrderResponse second = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"));
 
         assertThat(orderStatus(first.token())).isEqualTo("EXPIRED");
         assertThat(orderStatus(second.token())).isEqualTo("HELD");
@@ -104,11 +104,11 @@ class OrderHoldExpiryTest {
         Long heldSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
         Long otherSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A2")).getId();
         clock.setInstant(OPENED_AT);
-        orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(heldSeatId), "밤산책"));
+        orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(heldSeatId), null, "밤산책"));
 
         clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(HOLD_MINUTES)).minusNanos(1));
 
-        assertThatThrownBy(() -> orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(otherSeatId), "밤산책")))
+        assertThatThrownBy(() -> orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(otherSeatId), null, "밤산책")))
                 .isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_LIMIT_EXCEEDED));
     }
@@ -120,13 +120,13 @@ class OrderHoldExpiryTest {
         Long confirmedSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
         Long otherSeatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A2")).getId();
         clock.setInstant(OPENED_AT);
-        OrderResponse confirmed = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(confirmedSeatId), "밤산책"));
+        OrderResponse confirmed = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(confirmedSeatId), null, "밤산책"));
         jdbcTemplate.update("UPDATE orders SET status = 'CONFIRMED' WHERE token = ?", confirmed.token());
         jdbcTemplate.update("UPDATE seat SET status = 'SOLD', held_until = NULL WHERE id = ?", confirmedSeatId);
 
         clock.setInstant(OPENED_AT.plus(Duration.ofDays(1)));
 
-        assertThatThrownBy(() -> orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(otherSeatId), "밤산책")))
+        assertThatThrownBy(() -> orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(otherSeatId), null, "밤산책")))
                 .isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_LIMIT_EXCEEDED));
     }
@@ -134,7 +134,8 @@ class OrderHoldExpiryTest {
     private Showtime createShowtime() {
         Performance performance = performanceRepository.save(Performance.create("만료 테스트 공연", "테스트 공연장"));
         Instant startsAt = OPENED_AT.plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        return showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 OPENED_AT.minus(Duration.ofHours(1)), HOLD_MINUTES, 1));
     }
 

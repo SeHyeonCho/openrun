@@ -105,7 +105,7 @@ class OrderConfirmExpiryTest {
 
         clock.setInstant(HELD_UNTIL.plus(Duration.ofDays(1)));
 
-        assertThatThrownBy(() -> orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책")))
+        assertThatThrownBy(() -> orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책")))
                 .isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_NOT_AVAILABLE));
         assertThat(orderStatus(token)).isEqualTo("CONFIRMED");
@@ -131,7 +131,8 @@ class OrderConfirmExpiryTest {
     private Showtime createShowtime() {
         Performance performance = performanceRepository.save(Performance.create("확정 만료 테스트 공연", "테스트 공연장"));
         Instant startsAt = OPENED_AT.plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        return showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 OPENED_AT.minus(Duration.ofHours(1)), 10, 4));
     }
 
@@ -141,7 +142,7 @@ class OrderConfirmExpiryTest {
 
     private String holdAtOpening(Showtime showtime, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), "밤산책")).token();
+        return orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책")).token();
     }
 
     private String orderStatus(String token) {

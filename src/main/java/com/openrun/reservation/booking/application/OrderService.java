@@ -1,6 +1,10 @@
 package com.openrun.reservation.booking.application;
 
+import com.openrun.reservation.booking.domain.EntrySequence;
 import com.openrun.reservation.booking.domain.Order;
+import com.openrun.reservation.booking.domain.OrderEntryNumber;
+import com.openrun.reservation.booking.domain.OrderEntryNumberRepository;
+import com.openrun.reservation.booking.domain.OrderEntryNumberView;
 import com.openrun.reservation.booking.domain.OrderOwner;
 import com.openrun.reservation.booking.domain.OrderRepository;
 import com.openrun.reservation.booking.domain.OrderSeat;
@@ -18,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -35,17 +40,20 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderSeatRepository orderSeatRepository;
     private final ShowtimeBuyerLock showtimeBuyerLock;
+    private final OrderEntryNumberRepository orderEntryNumberRepository;
+    private final EntrySequence entrySequence;
     private final Clock clock;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public OrderResponse hold(Long buyerId, CreateOrderRequest request) {
-        List<Long> seatIds = request.seatIds();
-        if (new HashSet<>(seatIds).size() != seatIds.size()) {
-            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
-                    ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "같은 좌석을 두 번 요청할 수 없습니다."), null);
-        }
+        rejectInvalidSeatChoice(request);
         Showtime showtime = showtimeRepository.findById(request.showtimeId())
                 .orElseThrow(() -> new ShowtimeNotFoundException(request.showtimeId()));
+        if (showtime.isGeneralAdmission() != request.choosesQuantity()) {
+            throw badRequest(showtime.isGeneralAdmission()
+                    ? "자유석 회차는 좌석 대신 수량(quantity)으로 선점합니다."
+                    : "지정석 회차는 수량 대신 좌석(seatIds)으로 선점합니다.");
+        }
         Instant now = clock.instant();
         if (!showtime.isSalesOpenAt(now)) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
@@ -53,27 +61,28 @@ public class OrderService {
 
         showtimeBuyerLock.acquire(showtime.getId(), buyerId);
         long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), buyerId, now);
-        if (activeSeats + seatIds.size() > showtime.getMaxSeatsPerUser()) {
+        if (activeSeats + request.requestedSeatCount() > showtime.getMaxSeatsPerUser()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_LIMIT_EXCEEDED,
                     "1인 최대 좌석 수(" + showtime.getMaxSeatsPerUser() + "석)를 넘습니다.");
         }
 
-        List<Seat> seats = seatRepository.findAllByIdForUpdate(seatIds);
-        rejectSeatsOutsideShowtime(showtime, seatIds, seats);
-        rejectUnavailableSeats(seats, now);
+        List<Seat> seats = request.choosesQuantity()
+                ? lockGeneralSeats(showtime, request.quantity(), now)
+                : lockReservedSeats(showtime, request.seatIds(), now);
         expirePreviousOrders(seats, now);
 
         Order order = orderRepository.save(Order.hold(showtime, buyerId, request.buyerName(), now));
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
-        return OrderResponse.of(order, seats.size(), buyerId, now);
+        return OrderResponse.of(order, seats.size(), List.of(), buyerId, now);
     }
 
     @Transactional(readOnly = true)
     public OrderResponse find(String token, Long viewerBuyerId) {
         Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
         int quantity = Math.toIntExact(orderSeatRepository.countByOrderId(order.getId()));
-        return OrderResponse.of(order, quantity, viewerBuyerId, clock.instant());
+        return OrderResponse.of(order, quantity, orderEntryNumberRepository.findEntryNumbersByOrderId(order.getId()),
+                viewerBuyerId, clock.instant());
     }
 
     @Transactional(readOnly = true)
@@ -83,11 +92,15 @@ public class OrderService {
         if (orders.isEmpty()) {
             return new MyOrdersResponse(List.of(), now);
         }
-        Map<Long, Long> seatCounts = orderSeatRepository.countByOrderIds(orders.stream().map(Order::getId).toList())
-                .stream()
+        List<Long> orderIds = orders.stream().map(Order::getId).toList();
+        Map<Long, Long> seatCounts = orderSeatRepository.countByOrderIds(orderIds).stream()
                 .collect(Collectors.toMap(OrderSeatCount::orderId, OrderSeatCount::seatCount));
+        Map<Long, List<Integer>> entryNumbers = orderEntryNumberRepository.findEntryNumbersByOrderIds(orderIds).stream()
+                .collect(Collectors.groupingBy(OrderEntryNumberView::orderId,
+                        Collectors.mapping(OrderEntryNumberView::entryNumber, Collectors.toList())));
         return new MyOrdersResponse(orders.stream()
-                .map(order -> MyOrdersResponse.MyOrder.of(order, Math.toIntExact(seatCounts.get(order.getId())), now))
+                .map(order -> MyOrdersResponse.MyOrder.of(order, Math.toIntExact(seatCounts.get(order.getId())),
+                        entryNumbers.getOrDefault(order.getId(), List.of()), now))
                 .toList(), now);
     }
 
@@ -110,8 +123,51 @@ public class OrderService {
             }
             order.confirm(now);
             seats.forEach(seat -> seat.confirm(order));
+            assignEntryNumbers(order, seats.size());
         }
-        return OrderResponse.of(order, seats.size(), buyerId, now);
+        return OrderResponse.of(order, seats.size(), orderEntryNumberRepository.findEntryNumbersByOrderId(orderId),
+                buyerId, now);
+    }
+
+    private void assignEntryNumbers(Order order, int quantity) {
+        Showtime showtime = order.getShowtime();
+        if (!showtime.isGeneralAdmission()) {
+            return;
+        }
+        int first = entrySequence.reserve(showtime.getId(), quantity);
+        orderEntryNumberRepository.saveAll(IntStream.range(first, first + quantity)
+                .mapToObj(number -> OrderEntryNumber.of(order, number))
+                .toList());
+    }
+
+    private void rejectInvalidSeatChoice(CreateOrderRequest request) {
+        List<Long> seatIds = request.seatIds();
+        if ((seatIds == null) == (request.quantity() == null)) {
+            throw badRequest("좌석(seatIds)과 수량(quantity) 가운데 하나만 보내야 합니다.");
+        }
+        if (seatIds != null && (seatIds.isEmpty() || new HashSet<>(seatIds).size() != seatIds.size())) {
+            throw badRequest("좌석 목록이 비었거나 같은 좌석이 두 번 있습니다.");
+        }
+    }
+
+    private List<Seat> lockGeneralSeats(Showtime showtime, int quantity, Instant now) {
+        List<Seat> seats = seatRepository.findHoldableGeneralSeatsForUpdate(showtime.getId(), now, quantity);
+        if (seats.size() < quantity) {
+            throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_NOT_AVAILABLE, "남은 좌석이 요청한 수량보다 적습니다.");
+        }
+        return seats;
+    }
+
+    private List<Seat> lockReservedSeats(Showtime showtime, List<Long> seatIds, Instant now) {
+        List<Seat> seats = seatRepository.findAllByIdForUpdate(seatIds);
+        rejectSeatsOutsideShowtime(showtime, seatIds, seats);
+        rejectUnavailableSeats(seats, now);
+        return seats;
+    }
+
+    private ErrorResponseException badRequest(String detail) {
+        return new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail), null);
     }
 
     private void rejectSeatsOutsideShowtime(Showtime showtime, List<Long> seatIds, List<Seat> seats) {

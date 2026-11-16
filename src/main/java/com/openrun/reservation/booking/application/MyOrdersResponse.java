@@ -19,14 +19,14 @@ public record MyOrdersResponse(List<MyOrder> orders, Instant serverTime) {
             Instant heldUntil,
             Instant createdAt) {
 
-        static MyOrder of(Order order, int quantity, Instant now) {
+        static MyOrder of(Order order, int quantity, List<Integer> entryNumbers, Instant now) {
             return new MyOrder(
                     order.getToken(),
                     order.statusAt(now),
                     PerformanceSummary.of(order.getShowtime().getPerformance()),
                     ShowtimeSummary.of(order.getShowtime()),
                     quantity,
-                    List.of(),
+                    entryNumbers,
                     order.getHeldUntil(),
                     order.getCreatedAt());
         }
