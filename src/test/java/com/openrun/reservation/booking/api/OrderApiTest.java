@@ -1,5 +1,6 @@
 package com.openrun.reservation.booking.api;
 
+import static com.openrun.reservation.TestLogin.holdHeaders;
 import static com.openrun.reservation.TestLogin.loginAs;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -175,7 +176,7 @@ class OrderApiTest {
     @Test
     @DisplayName("회차가 빠진 선점 요청은 400을 반환한다")
     void rejectsMissingShowtime() throws Exception {
-        mockMvc.perform(post("/api/orders").with(loginAs(1L)).with(csrf())
+        mockMvc.perform(post("/api/orders").with(loginAs(1L)).with(holdHeaders(1L)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"seatIds\": [1], \"buyerName\": \"밤산책\"}"))
                 .andExpect(status().isBadRequest());
     }
@@ -203,7 +204,7 @@ class OrderApiTest {
         String body = """
                 {"showtimeId": %d, "seatIds": [%s], "buyerName": "%s"}
                 """.formatted(showtimeId, seats, buyerName);
-        return mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(csrf())
+        return mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(holdHeaders(buyerId)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 

@@ -1,6 +1,8 @@
 package com.openrun.reservation.booking.application;
 
 import com.openrun.reservation.booking.domain.EntrySequence;
+import com.openrun.reservation.booking.domain.HoldRequest;
+import com.openrun.reservation.booking.domain.HoldRequestRepository;
 import com.openrun.reservation.booking.domain.Order;
 import com.openrun.reservation.booking.domain.OrderEntryNumber;
 import com.openrun.reservation.booking.domain.OrderEntryNumberRepository;
@@ -20,7 +22,9 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
@@ -42,11 +46,19 @@ public class OrderService {
     private final ShowtimeBuyerLock showtimeBuyerLock;
     private final OrderEntryNumberRepository orderEntryNumberRepository;
     private final EntrySequence entrySequence;
+    private final HoldRequestRepository holdRequestRepository;
     private final Clock clock;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public OrderResponse hold(Long buyerId, CreateOrderRequest request) {
+    public HoldOutcome hold(Long buyerId, UUID idempotencyKey, CreateOrderRequest request) {
         rejectInvalidSeatChoice(request);
+        Instant now = clock.instant();
+        String key = idempotencyKey.toString();
+        Optional<HoldRequest> recorded = holdRequestRepository.findByBuyerIdAndIdempotencyKey(buyerId, key);
+        if (recorded.isPresent()) {
+            return replay(recorded.get(), request, buyerId, now);
+        }
+
         Showtime showtime = showtimeRepository.findById(request.showtimeId())
                 .orElseThrow(() -> new ShowtimeNotFoundException(request.showtimeId()));
         if (showtime.isGeneralAdmission() != request.choosesQuantity()) {
@@ -54,7 +66,35 @@ public class OrderService {
                     ? "자유석 회차는 좌석 대신 수량(quantity)으로 선점합니다."
                     : "지정석 회차는 수량 대신 좌석(seatIds)으로 선점합니다.");
         }
-        Instant now = clock.instant();
+
+        HoldRequest holdRequest = holdRequestRepository.saveAndFlush(HoldRequest.record(buyerId, key,
+                request.showtimeId(), request.quantity(), request.seatIds(), request.buyerName(), now));
+        try {
+            Order order = holdSeats(buyerId, showtime, request, now);
+            holdRequest.accept(order.getId());
+            return HoldOutcome.accepted(OrderResponse.of(order, request.requestedSeatCount(), List.of(), buyerId, now));
+        } catch (SeatHoldRejectedException rejection) {
+            holdRequest.reject(rejection.getRejection().name(), rejection.getBody().getDetail(),
+                    rejection.getSeatIds());
+            return HoldOutcome.rejected(rejection);
+        }
+    }
+
+    private HoldOutcome replay(HoldRequest recorded, CreateOrderRequest request, Long buyerId, Instant now) {
+        if (!recorded.hasSameContent(request.showtimeId(), request.quantity(), request.seatIds(),
+                request.buyerName())) {
+            throw new IdempotencyKeyReusedException();
+        }
+        if (recorded.isRejected()) {
+            return HoldOutcome.rejected(new SeatHoldRejectedException(
+                    SeatHoldRejection.valueOf(recorded.getRejectionCode()), recorded.getRejectionDetail(),
+                    recorded.rejectedSeatIds()));
+        }
+        Order order = orderRepository.findWithShowtimeById(recorded.getOrderId()).orElseThrow(OrderNotFoundException::new);
+        return HoldOutcome.accepted(orderResponse(order, buyerId, now));
+    }
+
+    private Order holdSeats(Long buyerId, Showtime showtime, CreateOrderRequest request, Instant now) {
         if (!showtime.isSalesOpenAt(now)) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
         }
@@ -74,15 +114,19 @@ public class OrderService {
         Order order = orderRepository.save(Order.hold(showtime, buyerId, request.buyerName(), now));
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
-        return OrderResponse.of(order, seats.size(), List.of(), buyerId, now);
+        return order;
+    }
+
+    private OrderResponse orderResponse(Order order, Long viewerBuyerId, Instant now) {
+        int quantity = Math.toIntExact(orderSeatRepository.countByOrderId(order.getId()));
+        return OrderResponse.of(order, quantity, orderEntryNumberRepository.findEntryNumbersByOrderId(order.getId()),
+                viewerBuyerId, now);
     }
 
     @Transactional(readOnly = true)
     public OrderResponse find(String token, Long viewerBuyerId) {
         Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
-        int quantity = Math.toIntExact(orderSeatRepository.countByOrderId(order.getId()));
-        return OrderResponse.of(order, quantity, orderEntryNumberRepository.findEntryNumbersByOrderId(order.getId()),
-                viewerBuyerId, clock.instant());
+        return orderResponse(order, viewerBuyerId, clock.instant());
     }
 
     @Transactional(readOnly = true)

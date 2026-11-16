@@ -1,5 +1,6 @@
 package com.openrun.reservation.booking.api;
 
+import static com.openrun.reservation.TestLogin.holdHeaders;
 import static com.openrun.reservation.TestLogin.loginAs;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -100,7 +101,8 @@ class OrderQueryApiTest {
 
     private String holdOrder(Showtime showtime, Long buyerId) throws Exception {
         Long seatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
-        String response = mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(csrf())
+        String response = mockMvc.perform(post("/api/orders").with(loginAs(buyerId))
+                .with(holdHeaders(buyerId)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"showtimeId": %d, "seatIds": [%d], "buyerName": "밤산책"}

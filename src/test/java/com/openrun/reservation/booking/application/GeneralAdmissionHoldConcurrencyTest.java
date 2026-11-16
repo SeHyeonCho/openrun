@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +41,9 @@ class GeneralAdmissionHoldConcurrencyTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private HoldService holdService;
 
     @Autowired
     private PerformanceRepository performanceRepository;
@@ -114,7 +118,7 @@ class GeneralAdmissionHoldConcurrencyTest {
                     ready.countDown();
                     start.await();
                     try {
-                        orderService.hold(buyerId,
+                        holdService.hold(buyerId, UUID.randomUUID(),
                                 new CreateOrderRequest(showtime.getId(), null, quantity, "구매자" + buyerId));
                         return new Attempt(buyerId, quantity, true, null);
                     } catch (SeatHoldRejectedException e) {

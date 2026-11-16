@@ -1,5 +1,6 @@
 package com.openrun.reservation.buyer.api;
 
+import static com.openrun.reservation.TestLogin.holdHeaders;
 import static com.openrun.reservation.TestLogin.loginAs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -83,7 +84,8 @@ class LoginApiTest {
     @Test
     @DisplayName("CSRF 토큰 없이 상태를 바꾸는 요청을 보내면 403을 반환하고 처리하지 않는다")
     void rejectsRequestsWithoutCsrfToken() throws Exception {
-        mockMvc.perform(post("/api/orders").with(loginAs(1L)).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/orders").with(loginAs(1L))
+                .with(holdHeaders(1L)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"showtimeId\": 1, \"seatIds\": [1]}"))
                 .andExpect(status().isForbidden())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))

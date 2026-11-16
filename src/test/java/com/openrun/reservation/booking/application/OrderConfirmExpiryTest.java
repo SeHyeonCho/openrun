@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,9 @@ class OrderConfirmExpiryTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private HoldService holdService;
 
     @Autowired
     private MutableClock clock;
@@ -105,7 +109,8 @@ class OrderConfirmExpiryTest {
 
         clock.setInstant(HELD_UNTIL.plus(Duration.ofDays(1)));
 
-        assertThatThrownBy(() -> orderService.hold(2L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책")))
+        assertThatThrownBy(() -> holdService.hold(2L, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책")))
                 .isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_NOT_AVAILABLE));
         assertThat(orderStatus(token)).isEqualTo("CONFIRMED");
@@ -142,7 +147,8 @@ class OrderConfirmExpiryTest {
 
     private String holdAtOpening(Showtime showtime, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책")).token();
+        return holdService.hold(1L, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책")).token();
     }
 
     private String orderStatus(String token) {

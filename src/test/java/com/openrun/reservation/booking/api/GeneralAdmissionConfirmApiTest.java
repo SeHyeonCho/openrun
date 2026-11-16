@@ -1,5 +1,6 @@
 package com.openrun.reservation.booking.api;
 
+import static com.openrun.reservation.TestLogin.holdHeaders;
 import static com.openrun.reservation.TestLogin.loginAs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -115,7 +116,7 @@ class GeneralAdmissionConfirmApiTest {
         Showtime showtime = showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
                 startsAt, startsAt.plus(Duration.ofHours(2)), now.minus(Duration.ofHours(1)), 10, 4));
         Long seatId = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1")).getId();
-        String response = mockMvc.perform(post("/api/orders").with(loginAs(1L)).with(csrf())
+        String response = mockMvc.perform(post("/api/orders").with(loginAs(1L)).with(holdHeaders(1L)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"showtimeId": %d, "seatIds": [%d], "buyerName": "밤산책"}
@@ -127,7 +128,8 @@ class GeneralAdmissionConfirmApiTest {
     }
 
     private String hold(Showtime showtime, Long buyerId, int quantity) throws Exception {
-        String response = mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(csrf())
+        String response = mockMvc.perform(post("/api/orders").with(loginAs(buyerId))
+                .with(holdHeaders(buyerId)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"showtimeId": %d, "quantity": %d, "buyerName": "밤산책"}

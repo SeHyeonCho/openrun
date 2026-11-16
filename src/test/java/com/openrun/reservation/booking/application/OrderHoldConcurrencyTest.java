@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,6 +38,9 @@ class OrderHoldConcurrencyTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private HoldService holdService;
 
     @Autowired
     private PerformanceRepository performanceRepository;
@@ -106,7 +110,8 @@ class OrderHoldConcurrencyTest {
     void onlyOneOrderHoldsExpiredSeatAgain() throws Exception {
         Showtime showtime = createShowtime(4);
         Seat seat = seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
-        String expiredToken = orderService.hold(0L, new CreateOrderRequest(showtime.getId(), List.of(seat.getId()), null, "밤산책"))
+        String expiredToken = holdService.hold(0L, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), List.of(seat.getId()), null, "밤산책"))
                 .token();
         jdbcTemplate.update("UPDATE orders SET held_until = NOW(6) - INTERVAL 1 MINUTE WHERE token = ?", expiredToken);
         jdbcTemplate.update("UPDATE seat SET held_until = NOW(6) - INTERVAL 1 MINUTE WHERE id = ?", seat.getId());
@@ -158,7 +163,7 @@ class OrderHoldConcurrencyTest {
                 ready.countDown();
                 start.await();
                 try {
-                    orderService.hold(attempt.buyerId(), attempt.request());
+                    holdService.hold(attempt.buyerId(), UUID.randomUUID(), attempt.request());
                     return Outcome.success();
                 } catch (SeatHoldRejectedException e) {
                     return Outcome.rejected(e.getRejection());
