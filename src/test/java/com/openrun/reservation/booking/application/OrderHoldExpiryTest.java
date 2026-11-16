@@ -134,7 +134,8 @@ class OrderHoldExpiryTest {
     private Showtime createShowtime() {
         Performance performance = performanceRepository.save(Performance.create("만료 테스트 공연", "테스트 공연장"));
         Instant startsAt = OPENED_AT.plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        return showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 OPENED_AT.minus(Duration.ofHours(1)), HOLD_MINUTES, 1));
     }
 

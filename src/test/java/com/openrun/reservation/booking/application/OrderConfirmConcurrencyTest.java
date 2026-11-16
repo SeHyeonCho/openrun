@@ -277,7 +277,8 @@ class OrderConfirmConcurrencyTest {
     private Showtime createShowtime(int maxSeatsPerUser) {
         Performance performance = performanceRepository.save(Performance.create("확정 동시성 테스트 공연", "테스트 공연장"));
         Instant startsAt = OPENED_AT.plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        return showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 OPENED_AT.minus(Duration.ofHours(1)), 10, maxSeatsPerUser));
     }
 

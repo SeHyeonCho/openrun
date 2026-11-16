@@ -49,7 +49,7 @@ class DatabaseCleanerTest {
         Performance performance = performanceRepository.save(Performance.create("정리 테스트 공연", "테스트 공연장"));
         Instant startsAt = Instant.now().plus(Duration.ofDays(7));
         Showtime showtime = showtimeRepository.save(
-                Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+                Showtime.create(performance, SeatType.RESERVED, startsAt, startsAt.plus(Duration.ofHours(2)),
                         startsAt.minus(Duration.ofDays(3)), 10, 4));
         seatRepository.save(Seat.forSale(showtime, SeatType.RESERVED, "A1"));
 

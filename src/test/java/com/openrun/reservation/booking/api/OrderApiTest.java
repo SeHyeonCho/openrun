@@ -82,7 +82,8 @@ class OrderApiTest {
         Performance performance = performanceRepository.save(Performance.create("판매 전 공연", "테스트 공연장"));
         Instant now = Instant.now();
         Instant startsAt = now.plus(Duration.ofDays(7));
-        Showtime showtime = showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        Showtime showtime = showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 now.plus(Duration.ofDays(1)), 10, 4));
         Long seat = saveSeat(showtime, "A1").getId();
 
@@ -210,7 +211,8 @@ class OrderApiTest {
         Performance performance = performanceRepository.save(Performance.create("선점 API 테스트 공연", "테스트 공연장"));
         Instant now = Instant.now();
         Instant startsAt = now.plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        return showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 now.minus(Duration.ofHours(1)), 10, maxSeatsPerUser));
     }
 

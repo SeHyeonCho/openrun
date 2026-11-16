@@ -179,7 +179,8 @@ class OrderHoldConcurrencyTest {
         Performance performance = performanceRepository.save(Performance.create("동시성 테스트 공연", "테스트 공연장"));
         Instant now = Instant.now();
         Instant startsAt = now.plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        return showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 now.minus(Duration.ofHours(1)), 10, maxSeatsPerUser));
     }
 

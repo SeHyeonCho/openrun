@@ -113,7 +113,8 @@ class SeatConstraintTest {
 
     private Showtime createShowtime() {
         Instant startsAt = Instant.now().plus(Duration.ofDays(7));
-        return showtimeRepository.save(Showtime.create(performance, startsAt, startsAt.plus(Duration.ofHours(2)),
+        return showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
                 startsAt.minus(Duration.ofDays(3)), 10, 4));
     }
 }

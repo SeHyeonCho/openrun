@@ -44,11 +44,13 @@ public class LocalSampleDataLoader implements ApplicationRunner {
         Instant secondDay = firstDay.plus(Duration.ofDays(1));
 
         Showtime reservedShow = showtimeRepository.save(
-                Showtime.create(performance, firstDay, firstDay.plus(RUNNING_TIME), salesOpenAt, 10, 4));
+                Showtime.create(performance, SeatType.RESERVED,
+                        firstDay, firstDay.plus(RUNNING_TIME), salesOpenAt, 10, 4));
         seatRepository.saveAll(reservedSeats(reservedShow));
 
         Showtime generalShow = showtimeRepository.save(
-                Showtime.create(performance, secondDay, secondDay.plus(RUNNING_TIME), salesOpenAt, 10, 4));
+                Showtime.create(performance, SeatType.GENERAL,
+                        secondDay, secondDay.plus(RUNNING_TIME), salesOpenAt, 10, 4));
         seatRepository.saveAll(generalSeats(generalShow));
     }
 
