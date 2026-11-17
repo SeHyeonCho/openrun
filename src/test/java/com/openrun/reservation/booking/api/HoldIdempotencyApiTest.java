@@ -156,7 +156,8 @@ class HoldIdempotencyApiTest {
         String key = UUID.randomUUID().toString();
         hold(1L, key, seatBody(showtime, String.valueOf(seatId), "밤산책"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SEAT_NOT_AVAILABLE"));
+                .andExpect(jsonPath("$.code").value("SEAT_NOT_AVAILABLE"))
+                .andExpect(jsonPath("$.seatIds", contains(seatId.intValue())));
         entityManager.flush();
         jdbcTemplate.update("UPDATE orders SET status = 'EXPIRED' WHERE buyer_id = 2");
         jdbcTemplate.update("UPDATE seat SET status = 'AVAILABLE', current_order_id = NULL, held_until = NULL");
@@ -214,16 +215,17 @@ class HoldIdempotencyApiTest {
         String seatIds = outside.stream().map(String::valueOf).collect(Collectors.joining(","));
         String key = UUID.randomUUID().toString();
 
-        hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+        String first = hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"));
+                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"))
+                .andReturn().getResponse().getContentAsString();
         String replayed = hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"))
                 .andReturn().getResponse().getContentAsString();
 
-        List<Number> replayedSeatIds = JsonPath.read(replayed, "$.seatIds");
-        assertThat(replayedSeatIds).extracting(Number::longValue).containsExactlyElementsOf(outside);
+        assertThat(seatIdsOf(first)).containsExactlyElementsOf(outside);
+        assertThat(seatIdsOf(replayed)).containsExactlyElementsOf(outside);
         assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(1);
     }
 
@@ -235,15 +237,22 @@ class HoldIdempotencyApiTest {
         String seatIds = outside.stream().map(String::valueOf).collect(Collectors.joining(","));
         String key = UUID.randomUUID().toString();
 
-        hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+        String first = hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"));
+                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"))
+                .andReturn().getResponse().getContentAsString();
         String replayed = hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
                 .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"))
                 .andReturn().getResponse().getContentAsString();
 
-        List<Number> replayedSeatIds = JsonPath.read(replayed, "$.seatIds");
-        assertThat(replayedSeatIds).extracting(Number::longValue).containsExactlyElementsOf(outside);
+        assertThat(seatIdsOf(first)).containsExactlyElementsOf(outside);
+        assertThat(seatIdsOf(replayed)).containsExactlyElementsOf(outside);
+    }
+
+    private List<Long> seatIdsOf(String responseBody) {
+        List<Number> seatIds = JsonPath.read(responseBody, "$.seatIds");
+        return seatIds.stream().map(Number::longValue).toList();
     }
 
     private ResultActions hold(Long buyerId, String key, String body) throws Exception {
