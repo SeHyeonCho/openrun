@@ -50,14 +50,14 @@ public class OrderService {
     private final Clock clock;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public HoldOutcome hold(Long buyerId, UUID idempotencyKey, CreateOrderRequest request) {
+    public Optional<HoldOutcome> hold(Long buyerId, UUID idempotencyKey, CreateOrderRequest request) {
         rejectInvalidSeatChoice(request);
         Instant now = clock.instant();
         String key = idempotencyKey.toString();
         Optional<HoldRequest> recorded = holdRequestRepository.findByBuyerIdAndIdempotencyKey(buyerId, key);
         if (recorded.isPresent()) {
             if (!recorded.get().isExpiredAt(now)) {
-                return replay(recorded.get(), request, buyerId, now);
+                return Optional.empty();
             }
             holdRequestRepository.delete(recorded.get());
             holdRequestRepository.flush();
@@ -76,11 +76,12 @@ public class OrderService {
         try {
             Order order = holdSeats(buyerId, showtime, request, now);
             holdRequest.accept(order.getId());
-            return HoldOutcome.accepted(OrderResponse.of(order, request.requestedSeatCount(), List.of(), buyerId, now));
+            return Optional.of(HoldOutcome.accepted(
+                    OrderResponse.of(order, request.requestedSeatCount(), List.of(), buyerId, now)));
         } catch (SeatHoldRejectedException rejection) {
             holdRequest.reject(rejection.getRejection().name(), rejection.getBody().getDetail(),
                     rejection.getSeatIds());
-            return HoldOutcome.rejected(rejection);
+            return Optional.of(HoldOutcome.rejected(rejection));
         }
     }
 
