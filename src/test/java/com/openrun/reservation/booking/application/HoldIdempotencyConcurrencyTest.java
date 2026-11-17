@@ -77,6 +77,7 @@ class HoldIdempotencyConcurrencyTest {
         assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM seat WHERE status = 'HELD'")).isEqualTo(2);
         assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo(2);
+        assertThat(heldSeatsOwnedBy(results.getFirst().token())).isEqualTo(2);
     }
 
     @Test
@@ -103,6 +104,8 @@ class HoldIdempotencyConcurrencyTest {
         assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM seat WHERE status = 'HELD' AND showtime_id = " + winner)).isEqualTo(2);
+        assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo(2);
+        assertThat(heldSeatsOwnedBy(succeeded.getFirst().token())).isEqualTo(2);
         assertThat(count("SELECT COUNT(*) FROM seat WHERE status <> 'AVAILABLE' AND showtime_id <> " + winner))
                 .isZero();
     }
@@ -153,6 +156,15 @@ class HoldIdempotencyConcurrencyTest {
             seatRepository.save(Seat.forSale(showtime, SeatType.GENERAL, String.valueOf(i)));
         }
         return showtime;
+    }
+
+    private int heldSeatsOwnedBy(String token) {
+        return jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM seat s
+                JOIN orders o ON o.id = s.current_order_id
+                JOIN order_seat os ON os.order_id = o.id AND os.seat_id = s.id
+                WHERE o.token = ? AND s.status = 'HELD'
+                """, Integer.class, token);
     }
 
     private int count(String sql) {
