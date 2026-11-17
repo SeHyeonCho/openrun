@@ -108,6 +108,7 @@ class HoldIdempotencyExpiryTest {
         assertThat(tokens.getFirst()).isNotEqualTo(first.token());
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders", Integer.class)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM hold_request", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM order_seat", Integer.class)).isEqualTo(3);
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM seat s
                 JOIN orders o ON o.id = s.current_order_id
