@@ -10,7 +10,7 @@ CREATE TABLE hold_request
     order_id           BIGINT       NULL,
     rejection_code     VARCHAR(40)  NULL,
     rejection_detail   VARCHAR(255) NULL,
-    rejection_seat_ids TEXT         NULL,
+    rejection_seat_ids LONGTEXT     NULL,
     recorded_at        DATETIME(6)  NOT NULL,
     created_at         DATETIME(6)  NOT NULL,
     updated_at         DATETIME(6)  NOT NULL,

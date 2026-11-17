@@ -227,6 +227,25 @@ class HoldIdempotencyApiTest {
         assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("거부한 좌석 목록이 64KB를 넘어도 기록해, 같은 요청을 다시 보내면 기록한 좌석 목록을 그대로 돌려준다")
+    void recordsRejectedSeatListLongerThanText() throws Exception {
+        Showtime showtime = saveShowtime(SeatType.RESERVED, 4000);
+        List<Long> outside = LongStream.rangeClosed(1, 3300).map(i -> Long.MAX_VALUE - i).sorted().boxed().toList();
+        String seatIds = outside.stream().map(String::valueOf).collect(Collectors.joining(","));
+        String key = UUID.randomUUID().toString();
+
+        hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"));
+        String replayed = hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+                .andExpect(status().isConflict())
+                .andReturn().getResponse().getContentAsString();
+
+        List<Number> replayedSeatIds = JsonPath.read(replayed, "$.seatIds");
+        assertThat(replayedSeatIds).extracting(Number::longValue).containsExactlyElementsOf(outside);
+    }
+
     private ResultActions hold(Long buyerId, String key, String body) throws Exception {
         return mockMvc.perform(base(buyerId)
                 .header("Idempotency-Key", key)

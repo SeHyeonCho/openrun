@@ -57,7 +57,7 @@ public class HoldRequest extends BaseEntity {
 
     private String rejectionDetail;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "LONGTEXT")
     private String rejectionSeatIds;
 
     @Column(nullable = false)
