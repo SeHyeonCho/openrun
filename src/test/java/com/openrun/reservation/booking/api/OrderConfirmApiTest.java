@@ -1,5 +1,6 @@
 package com.openrun.reservation.booking.api;
 
+import static com.openrun.reservation.TestLogin.holdHeaders;
 import static com.openrun.reservation.TestLogin.loginAs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -196,7 +197,7 @@ class OrderConfirmApiTest {
 
     private ResultActions createOrder(Long showtimeId, Long buyerId, List<Long> seatIds) throws Exception {
         String seats = seatIds.stream().map(String::valueOf).collect(Collectors.joining(","));
-        return mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(csrf())
+        return mockMvc.perform(post("/api/orders").with(loginAs(buyerId)).with(holdHeaders(buyerId)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"showtimeId": %d, "seatIds": [%s], "buyerName": "밤산책"}

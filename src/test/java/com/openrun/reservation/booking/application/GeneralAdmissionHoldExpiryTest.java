@@ -16,6 +16,7 @@ import com.openrun.reservation.booking.domain.Showtime;
 import com.openrun.reservation.booking.domain.ShowtimeRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class GeneralAdmissionHoldExpiryTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private HoldService holdService;
 
     @Autowired
     private MutableClock clock;
@@ -83,7 +87,8 @@ class GeneralAdmissionHoldExpiryTest {
     }
 
     private OrderResponse holdOne(Showtime showtime, Long buyerId) {
-        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), null, 1, "구매자" + buyerId));
+        return holdService.hold(buyerId, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), null, 1, "구매자" + buyerId));
     }
 
     private Showtime createGeneralShowtime() {

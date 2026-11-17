@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -48,6 +49,9 @@ class OrderConfirmConcurrencyTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private HoldService holdService;
 
     @Autowired
     private MutableClock clock;
@@ -126,7 +130,8 @@ class OrderConfirmConcurrencyTest {
         Long first = saveSeat(showtime, "A1");
         Long second = saveSeat(showtime, "A2");
         clock.setInstant(OPENED_AT);
-        String token = orderService.hold(1L, new CreateOrderRequest(showtime.getId(), List.of(first, second), null, "밤산책"))
+        String token = holdService.hold(1L, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), List.of(first, second), null, "밤산책"))
                 .token();
         clock.setInstant(OPENED_AT.plus(Duration.ofMinutes(1)));
 
@@ -249,7 +254,8 @@ class OrderConfirmConcurrencyTest {
     }
 
     private void hold(Showtime showtime, Long buyerId, Long seatId) {
-        orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"));
+        holdService.hold(buyerId, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"));
     }
 
     private <T> List<T> runConcurrently(List<Callable<T>> tasks) throws Exception {
@@ -288,7 +294,8 @@ class OrderConfirmConcurrencyTest {
 
     private String holdAtOpening(Showtime showtime, Long buyerId, Long seatId) {
         clock.setInstant(OPENED_AT);
-        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"))
+        return holdService.hold(buyerId, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), List.of(seatId), null, "밤산책"))
                 .token();
     }
 

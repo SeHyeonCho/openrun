@@ -24,6 +24,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("""
             select o from Order o join fetch o.showtime s join fetch s.performance
+            where o.id = :id
+            """)
+    Optional<Order> findWithShowtimeById(@Param("id") Long id);
+
+    @Query("""
+            select o from Order o join fetch o.showtime s join fetch s.performance
             where o.buyerId = :buyerId
             order by o.createdAt desc, o.id desc
             """)

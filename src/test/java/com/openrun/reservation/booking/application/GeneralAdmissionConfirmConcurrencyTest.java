@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +41,9 @@ class GeneralAdmissionConfirmConcurrencyTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private HoldService holdService;
 
     @Autowired
     private PerformanceRepository performanceRepository;
@@ -141,7 +145,8 @@ class GeneralAdmissionConfirmConcurrencyTest {
     }
 
     private OrderResponse holdGeneral(Showtime showtime, Long buyerId, int quantity) {
-        return orderService.hold(buyerId, new CreateOrderRequest(showtime.getId(), null, quantity, "구매자" + buyerId));
+        return holdService.hold(buyerId, UUID.randomUUID(),
+                new CreateOrderRequest(showtime.getId(), null, quantity, "구매자" + buyerId));
     }
 
     private <T> List<T> runConcurrently(List<Callable<T>> tasks) throws Exception {
