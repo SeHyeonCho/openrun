@@ -85,7 +85,7 @@ public class OrderService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Optional<HoldOutcome> replayRecordedHold(Long buyerId, UUID idempotencyKey, CreateOrderRequest request) {
         Instant now = clock.instant();
         return holdRequestRepository.findByBuyerIdAndIdempotencyKey(buyerId, idempotencyKey.toString())
@@ -135,13 +135,13 @@ public class OrderService {
                 viewerBuyerId, now);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public OrderResponse find(String token, Long viewerBuyerId) {
         Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
         return orderResponse(order, viewerBuyerId, clock.instant());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public MyOrdersResponse findMyOrders(Long buyerId) {
         List<Order> orders = orderRepository.findAllWithShowtimeByBuyerId(buyerId);
         Instant now = clock.instant();
