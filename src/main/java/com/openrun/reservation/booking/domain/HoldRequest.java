@@ -6,10 +6,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -40,8 +44,8 @@ public class HoldRequest extends BaseEntity {
 
     private Integer quantity;
 
-    @Column(length = 1000)
-    private String seatIds;
+    @Column(length = 64)
+    private String seatIdsDigest;
 
     @Column(nullable = false, length = 20)
     private String buyerName;
@@ -53,32 +57,32 @@ public class HoldRequest extends BaseEntity {
 
     private String rejectionDetail;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String rejectionSeatIds;
 
     @Column(nullable = false)
     private Instant recordedAt;
 
-    private HoldRequest(Long buyerId, String idempotencyKey, Long showtimeId, Integer quantity, String seatIds,
-            String buyerName, Instant recordedAt) {
+    private HoldRequest(Long buyerId, String idempotencyKey, Long showtimeId, Integer quantity,
+            String seatIdsDigest, String buyerName, Instant recordedAt) {
         this.buyerId = buyerId;
         this.idempotencyKey = idempotencyKey;
         this.showtimeId = showtimeId;
         this.quantity = quantity;
-        this.seatIds = seatIds;
+        this.seatIdsDigest = seatIdsDigest;
         this.buyerName = buyerName;
         this.recordedAt = recordedAt;
     }
 
     public static HoldRequest record(Long buyerId, String idempotencyKey, Long showtimeId, Integer quantity,
             Collection<Long> seatIds, String buyerName, Instant now) {
-        return new HoldRequest(buyerId, idempotencyKey, showtimeId, quantity, join(seatIds), buyerName, now);
+        return new HoldRequest(buyerId, idempotencyKey, showtimeId, quantity, digest(seatIds), buyerName, now);
     }
 
     public boolean hasSameContent(Long showtimeId, Integer quantity, Collection<Long> seatIds, String buyerName) {
         return this.showtimeId.equals(showtimeId)
                 && Objects.equals(this.quantity, quantity)
-                && Objects.equals(this.seatIds, join(seatIds))
+                && Objects.equals(this.seatIdsDigest, digest(seatIds))
                 && this.buyerName.equals(buyerName);
     }
 
@@ -105,6 +109,18 @@ public class HoldRequest extends BaseEntity {
             return List.of();
         }
         return Arrays.stream(rejectionSeatIds.split(SEPARATOR)).map(Long::valueOf).toList();
+    }
+
+    private static String digest(Collection<Long> seatIds) {
+        if (seatIds == null) {
+            return null;
+        }
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(join(seatIds).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static String join(Collection<Long> seatIds) {

@@ -21,7 +21,10 @@ import com.openrun.reservation.booking.domain.ShowtimeRepository;
 import jakarta.persistence.EntityManager;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -184,6 +187,44 @@ class HoldIdempotencyApiTest {
 
         assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo(2);
         assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("좌석 목록이 길어도 요청을 기록해, 1인 최대 좌석 수를 넘은 요청을 다시 보내면 기록한 409를 돌려준다")
+    void recordsLongSeatListRejectedByLimit() throws Exception {
+        Showtime showtime = saveShowtime(SeatType.RESERVED, 1);
+        String seatIds = LongStream.rangeClosed(1, 300).mapToObj(String::valueOf).collect(Collectors.joining(","));
+        String key = UUID.randomUUID().toString();
+
+        hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SEAT_LIMIT_EXCEEDED"));
+        hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SEAT_LIMIT_EXCEEDED"));
+
+        assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("거부한 좌석 목록이 길어도 기록해, 같은 요청을 다시 보내면 기록한 409와 좌석 목록을 그대로 돌려준다")
+    void recordsLongRejectedSeatList() throws Exception {
+        Showtime showtime = saveShowtime(SeatType.RESERVED, 100);
+        List<Long> outside = LongStream.rangeClosed(1, 60).map(i -> Long.MAX_VALUE - i).sorted().boxed().toList();
+        String seatIds = outside.stream().map(String::valueOf).collect(Collectors.joining(","));
+        String key = UUID.randomUUID().toString();
+
+        hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"));
+        String replayed = hold(1L, key, seatBody(showtime, seatIds, "밤산책"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SEAT_NOT_IN_SHOWTIME"))
+                .andReturn().getResponse().getContentAsString();
+
+        List<Number> replayedSeatIds = JsonPath.read(replayed, "$.seatIds");
+        assertThat(replayedSeatIds).extracting(Number::longValue).containsExactlyElementsOf(outside);
+        assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(1);
     }
 
     private ResultActions hold(Long buyerId, String key, String body) throws Exception {
