@@ -3,6 +3,7 @@ package com.openrun.reservation.booking.application;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,7 +16,7 @@ public class HoldService {
         HoldOutcome outcome;
         try {
             outcome = orderService.hold(buyerId, idempotencyKey, request);
-        } catch (DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException e) {
             outcome = orderService.replayRecordedHold(buyerId, idempotencyKey, request).orElseThrow(() -> e);
         }
         return outcome.orThrow();
