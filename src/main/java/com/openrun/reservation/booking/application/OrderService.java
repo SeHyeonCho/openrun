@@ -169,6 +169,9 @@ public class OrderService {
         Instant now = clock.instant();
 
         if (!order.isConfirmed()) {
+            if (order.isCancelled()) {
+                throw new OrderRejectedException(OrderRejection.ORDER_CANCELLED, "취소한 주문은 확정할 수 없습니다.");
+            }
             if (!order.isConfirmableAt(now)) {
                 throw new OrderRejectedException(OrderRejection.ORDER_EXPIRED, "선점 기한이 지난 주문입니다.");
             }
