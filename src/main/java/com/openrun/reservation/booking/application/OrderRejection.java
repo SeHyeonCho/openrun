@@ -7,7 +7,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum OrderRejection {
-    ORDER_EXPIRED(HttpStatus.CONFLICT);
+    ORDER_EXPIRED(HttpStatus.CONFLICT),
+    ORDER_CONFIRMED(HttpStatus.CONFLICT);
 
     private final HttpStatus status;
 }

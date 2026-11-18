@@ -90,6 +90,24 @@ public class Order extends BaseEntity {
         return status == OrderStatus.HELD && now.isBefore(heldUntil);
     }
 
+    public boolean isCancelled() {
+        return status == OrderStatus.CANCELLED;
+    }
+
+    public boolean isCancellableAt(Instant now) {
+        return status == OrderStatus.HELD && now.isBefore(heldUntil);
+    }
+
+    public void cancel(Instant now) {
+        if (isCancelled()) {
+            return;
+        }
+        if (!isCancellableAt(now)) {
+            throw new IllegalStateException("취소할 수 없는 주문이다: " + id);
+        }
+        this.status = OrderStatus.CANCELLED;
+    }
+
     public void confirm(Instant now) {
         if (isConfirmed()) {
             return;

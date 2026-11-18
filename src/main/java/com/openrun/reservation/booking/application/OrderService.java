@@ -162,15 +162,10 @@ public class OrderService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public OrderResponse confirm(Long buyerId, String token) {
-        OrderOwner owner = orderRepository.findOwnerByToken(token)
-                .filter(found -> found.buyerId().equals(buyerId))
-                .orElseThrow(OrderNotFoundException::new);
-        Long orderId = owner.orderId();
-
-        showtimeBuyerLock.acquire(owner.showtimeId(), owner.buyerId());
-        List<Seat> seats = seatRepository.findAllByIdForUpdate(orderSeatRepository.findSeatIdsByOrderId(orderId));
-        Order order = orderRepository.findByIdForUpdate(orderId)
-                .orElseThrow(OrderNotFoundException::new);
+        LockedOrder locked = lockOwnOrder(buyerId, token);
+        Order order = locked.order();
+        List<Seat> seats = locked.seats();
+        Long orderId = order.getId();
         Instant now = clock.instant();
 
         if (!order.isConfirmed()) {
@@ -183,6 +178,39 @@ public class OrderService {
         }
         return OrderResponse.of(order, seats.size(), orderEntryNumberRepository.findEntryNumbersByOrderId(orderId),
                 buyerId, now);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse cancel(Long buyerId, String token) {
+        LockedOrder locked = lockOwnOrder(buyerId, token);
+        Order order = locked.order();
+        Instant now = clock.instant();
+
+        if (!order.isCancelled()) {
+            if (order.isConfirmed()) {
+                throw new OrderRejectedException(OrderRejection.ORDER_CONFIRMED, "이미 확정한 주문은 취소할 수 없습니다.");
+            }
+            if (!order.isCancellableAt(now)) {
+                throw new OrderRejectedException(OrderRejection.ORDER_EXPIRED, "선점 기한이 지난 주문입니다.");
+            }
+            order.cancel(now);
+            locked.seats().forEach(seat -> seat.release(order));
+        }
+        return OrderResponse.of(order, locked.seats().size(), List.of(), buyerId, now);
+    }
+
+    private LockedOrder lockOwnOrder(Long buyerId, String token) {
+        OrderOwner owner = orderRepository.findOwnerByToken(token)
+                .filter(found -> found.buyerId().equals(buyerId))
+                .orElseThrow(OrderNotFoundException::new);
+        showtimeBuyerLock.acquire(owner.showtimeId(), owner.buyerId());
+        List<Seat> seats = seatRepository.findAllByIdForUpdate(
+                orderSeatRepository.findSeatIdsByOrderId(owner.orderId()));
+        Order order = orderRepository.findByIdForUpdate(owner.orderId()).orElseThrow(OrderNotFoundException::new);
+        return new LockedOrder(order, seats);
+    }
+
+    private record LockedOrder(Order order, List<Seat> seats) {
     }
 
     private void assignEntryNumbers(Order order, int quantity) {
