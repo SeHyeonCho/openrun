@@ -175,7 +175,7 @@ public class OrderService {
 
         if (!order.isConfirmed()) {
             if (!order.isConfirmableAt(now)) {
-                throw new OrderConfirmRejectedException(OrderConfirmRejection.ORDER_EXPIRED, "선점 기한이 지난 주문입니다.");
+                throw new OrderRejectedException(OrderRejection.ORDER_EXPIRED, "선점 기한이 지난 주문입니다.");
             }
             order.confirm(now);
             seats.forEach(seat -> seat.confirm(order));
