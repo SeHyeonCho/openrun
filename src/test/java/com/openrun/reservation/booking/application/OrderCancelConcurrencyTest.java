@@ -110,7 +110,15 @@ class OrderCancelConcurrencyTest {
             if (cancel.equals("CANCELLED")) {
                 assertThat(confirm).isEqualTo("ORDER_CANCELLED");
                 assertThat(orderStatus(token)).isEqualTo("CANCELLED");
-                assertThat(seatStatus(seatId)).isEqualTo("AVAILABLE");
+                assertThat(jdbcTemplate.queryForMap(
+                        "SELECT status, current_order_id, held_until FROM seat WHERE id = ?", seatId))
+                        .containsEntry("status", "AVAILABLE")
+                        .containsEntry("current_order_id", null)
+                        .containsEntry("held_until", null);
+                assertThat(jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*) FROM order_seat os JOIN orders o ON o.id = os.order_id
+                        WHERE o.token = ? AND os.seat_id = ?
+                        """, Integer.class, token, seatId)).isEqualTo(1);
             } else {
                 assertThat(cancel).isEqualTo("ORDER_CONFIRMED");
                 assertThat(confirm).isEqualTo("CONFIRMED");
