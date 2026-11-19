@@ -110,6 +110,9 @@ public class OrderService {
         if (!showtime.isSalesOpenAt(now)) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
         }
+        if (showtime.isSalesClosedAt(now)) {
+            throw new SeatHoldRejectedException(SeatHoldRejection.SALES_CLOSED, "판매가 끝났습니다.");
+        }
 
         showtimeBuyerLock.acquire(showtime.getId(), buyerId);
         long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), buyerId, now);
