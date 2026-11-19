@@ -244,7 +244,7 @@ class OrderConfirmConcurrencyTest {
             return Outcome.success();
         } catch (SeatHoldRejectedException e) {
             return Outcome.rejected(e.getRejection().name());
-        } catch (OrderConfirmRejectedException e) {
+        } catch (OrderRejectedException e) {
             return Outcome.rejected(e.getRejection().name());
         }
     }

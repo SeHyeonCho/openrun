@@ -92,8 +92,8 @@ class OrderConfirmExpiryTest {
         clock.setInstant(HELD_UNTIL);
 
         assertThatThrownBy(() -> orderService.confirm(1L, token))
-                .isInstanceOfSatisfying(OrderConfirmRejectedException.class,
-                        e -> assertThat(e.getRejection()).isEqualTo(OrderConfirmRejection.ORDER_EXPIRED));
+                .isInstanceOfSatisfying(OrderRejectedException.class,
+                        e -> assertThat(e.getRejection()).isEqualTo(OrderRejection.ORDER_EXPIRED));
         assertThat(orderStatus(token)).isEqualTo("HELD");
         assertThat(seatStatus(seatId)).isEqualTo("HELD");
     }

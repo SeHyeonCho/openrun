@@ -61,6 +61,11 @@ public class OrderController {
         return orderService.confirm(buyer.id(), token);
     }
 
+    @PostMapping("/{token}/cancel")
+    public OrderResponse cancel(@AuthenticationPrincipal LoginBuyer buyer, @PathVariable String token) {
+        return orderService.cancel(buyer.id(), token);
+    }
+
     private UUID parseIdempotencyKey(String value) {
         if (!UUID_PATTERN.matcher(value).matches()) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST, ProblemDetail.forStatusAndDetail(

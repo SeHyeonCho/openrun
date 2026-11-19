@@ -145,6 +145,23 @@ class OrderConfirmApiTest {
     }
 
     @Test
+    @DisplayName("취소한 주문을 확정하면 ORDER_CANCELLED로 거부하고 주문은 취소, 좌석은 판매 가능으로 남는다")
+    void rejectsCancelledOrder() throws Exception {
+        Showtime showtime = openShowtime();
+        Long seatId = saveSeat(showtime, "A1").getId();
+        String token = holdOrder(showtime.getId(), 1L, List.of(seatId));
+        mockMvc.perform(post("/api/orders/{token}/cancel", token).with(loginAs(1L)).with(csrf()))
+                .andExpect(status().isOk());
+
+        confirmOrder(token, 1L)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ORDER_CANCELLED"));
+
+        mockMvc.perform(get("/api/orders/{token}", token)).andExpect(jsonPath("$.status").value("CANCELLED"));
+        assertThat(seatRepository.findById(seatId).orElseThrow().getStatus().name()).isEqualTo("AVAILABLE");
+    }
+
+    @Test
     @DisplayName("다른 구매자의 주문을 확정하면 404를 반환하고 주문과 좌석은 선점 상태로 남는다")
     void hidesOrderOfAnotherBuyer() throws Exception {
         Showtime showtime = openShowtime();
