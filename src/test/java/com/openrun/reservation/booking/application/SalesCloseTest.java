@@ -13,12 +13,18 @@ import com.openrun.reservation.booking.domain.Seat;
 import com.openrun.reservation.booking.domain.SeatRepository;
 import com.openrun.reservation.booking.domain.SeatType;
 import com.openrun.reservation.booking.domain.Showtime;
+import com.openrun.reservation.booking.domain.ShowtimeBuyerLock;
 import com.openrun.reservation.booking.domain.ShowtimeRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 @Import({TestcontainersConfiguration.class, DatabaseCleaner.class, MutableClockConfiguration.class})
@@ -57,6 +64,12 @@ class SalesCloseTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ShowtimeBuyerLock showtimeBuyerLock;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Autowired
     private DatabaseCleaner databaseCleaner;
@@ -131,6 +144,65 @@ class SalesCloseTest {
                 .isEqualTo("SALES_CLOSED");
         assertThat(count("SELECT COUNT(*) FROM hold_request")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM orders")).isZero();
+    }
+
+    @Test
+    @DisplayName("마감 전에 받은 선점이 구매자 잠금을 기다리는 동안 마감 시각이 지나면 SALES_CLOSED로 거부하고 주문을 만들지 않는다")
+    void holdThatWaitedForLockPastSalesCloseIsRejected() throws Exception {
+        Showtime showtime = createShowtime(SeatType.RESERVED);
+        Long seatId = saveSeat(showtime, SeatType.RESERVED, "A1");
+        clock.setInstant(JUST_BEFORE_CLOSE);
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> blocker = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+                showtimeBuyerLock.acquire(showtime.getId(), 1L);
+                locked.countDown();
+                awaitQuietly(release);
+            }));
+            assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+            Future<Throwable> hold = executor.submit(() -> {
+                try {
+                    holdService.hold(1L, UUID.randomUUID(), reserved(showtime, seatId));
+                    return null;
+                } catch (Throwable e) {
+                    return e;
+                }
+            });
+            waitUntilWaitingForBuyerLock();
+
+            clock.setInstant(SALES_CLOSE_AT);
+            release.countDown();
+            blocker.get(10, TimeUnit.SECONDS);
+
+            assertThat(hold.get(10, TimeUnit.SECONDS)).isInstanceOfSatisfying(SeatHoldRejectedException.class,
+                    e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SALES_CLOSED));
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(count("SELECT COUNT(*) FROM orders")).isZero();
+        assertThat(seatStatus(seatId)).isEqualTo("AVAILABLE");
+    }
+
+    private void waitUntilWaitingForBuyerLock() throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (count("SELECT COUNT(*) FROM information_schema.processlist"
+                + " WHERE info LIKE 'INSERT INTO showtime_buyer%'") == 0) {
+            assertThat(System.nanoTime()).isLessThan(deadline);
+            Thread.sleep(20);
+        }
+    }
+
+    private void awaitQuietly(CountDownLatch latch) {
+        try {
+            assertThat(latch.await(30, TimeUnit.SECONDS)).isTrue();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
     }
 
     private void assertRejected(Runnable hold) {

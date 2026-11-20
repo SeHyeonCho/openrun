@@ -110,9 +110,7 @@ public class OrderService {
         if (!showtime.isSalesOpenAt(now)) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
         }
-        if (showtime.isSalesClosedAt(now)) {
-            throw new SeatHoldRejectedException(SeatHoldRejection.SALES_CLOSED, "판매가 끝났습니다.");
-        }
+        rejectIfSalesClosed(showtime, now);
 
         showtimeBuyerLock.acquire(showtime.getId(), buyerId);
         long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), buyerId, now);
@@ -124,12 +122,19 @@ public class OrderService {
         List<Seat> seats = request.choosesQuantity()
                 ? lockGeneralSeats(showtime, request.quantity(), now)
                 : lockReservedSeats(showtime, request.seatIds(), now);
+        rejectIfSalesClosed(showtime, clock.instant());
         expirePreviousOrders(seats, now);
 
         Order order = orderRepository.save(Order.hold(showtime, buyerId, request.buyerName(), now));
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
         return order;
+    }
+
+    private void rejectIfSalesClosed(Showtime showtime, Instant at) {
+        if (showtime.isSalesClosedAt(at)) {
+            throw new SeatHoldRejectedException(SeatHoldRejection.SALES_CLOSED, "판매가 끝났습니다.");
+        }
     }
 
     private OrderResponse orderResponse(Order order, Long viewerBuyerId, Instant now) {
