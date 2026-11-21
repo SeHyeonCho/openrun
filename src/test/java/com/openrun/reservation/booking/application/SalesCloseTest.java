@@ -148,52 +148,93 @@ class SalesCloseTest {
 
     @Test
     @DisplayName("마감 전에 받은 선점이 구매자 잠금을 기다리는 동안 마감 시각이 지나면 SALES_CLOSED로 거부하고 주문을 만들지 않는다")
-    void holdThatWaitedForLockPastSalesCloseIsRejected() throws Exception {
+    void holdThatWaitedForBuyerLockPastSalesCloseIsRejected() throws Exception {
         Showtime showtime = createShowtime(SeatType.RESERVED);
         Long seatId = saveSeat(showtime, SeatType.RESERVED, "A1");
         clock.setInstant(JUST_BEFORE_CLOSE);
+
+        Throwable result = holdWhileBlocked(() -> showtimeBuyerLock.acquire(showtime.getId(), 1L),
+                "INSERT INTO showtime_buyer%", reserved(showtime, seatId));
+
+        assertSalesClosed(result);
+        assertThat(count("SELECT COUNT(*) FROM orders")).isZero();
+        assertThat(seatStatus(seatId)).isEqualTo("AVAILABLE");
+    }
+
+    @Test
+    @DisplayName("구매자 잠금을 기다리는 사이 마감이 지나면 좌석이 다른 주문에 선점돼 있어도 SEAT_NOT_AVAILABLE이 아니라 SALES_CLOSED로 거부한다")
+    void salesClosedComesBeforeSeatCheckAfterBuyerLockWait() throws Exception {
+        Showtime showtime = createShowtime(SeatType.RESERVED);
+        Long seatId = saveSeat(showtime, SeatType.RESERVED, "A1");
+        clock.setInstant(JUST_BEFORE_CLOSE);
+        holdService.hold(2L, UUID.randomUUID(), reserved(showtime, seatId));
+
+        Throwable result = holdWhileBlocked(() -> showtimeBuyerLock.acquire(showtime.getId(), 1L),
+                "INSERT INTO showtime_buyer%", reserved(showtime, seatId));
+
+        assertSalesClosed(result);
+    }
+
+    @Test
+    @DisplayName("좌석 잠금을 기다리는 사이 마감이 지나면 좌석이 다른 주문에 선점돼 있어도 SALES_CLOSED로 거부한다")
+    void salesClosedComesBeforeSeatCheckAfterSeatLockWait() throws Exception {
+        Showtime showtime = createShowtime(SeatType.RESERVED);
+        Long seatId = saveSeat(showtime, SeatType.RESERVED, "A1");
+        clock.setInstant(JUST_BEFORE_CLOSE);
+        holdService.hold(2L, UUID.randomUUID(), reserved(showtime, seatId));
+
+        Throwable result = holdWhileBlocked(
+                () -> jdbcTemplate.queryForList("SELECT id FROM seat WHERE id = ? FOR UPDATE", seatId),
+                "select%from seat%for update%", reserved(showtime, seatId));
+
+        assertSalesClosed(result);
+    }
+
+    private Throwable holdWhileBlocked(Runnable lock, String waitingQuery, CreateOrderRequest request)
+            throws Exception {
         CountDownLatch locked = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Future<?> blocker = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
-                showtimeBuyerLock.acquire(showtime.getId(), 1L);
+                lock.run();
                 locked.countDown();
                 awaitQuietly(release);
             }));
             assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
             Future<Throwable> hold = executor.submit(() -> {
                 try {
-                    holdService.hold(1L, UUID.randomUUID(), reserved(showtime, seatId));
+                    holdService.hold(1L, UUID.randomUUID(), request);
                     return null;
                 } catch (Throwable e) {
                     return e;
                 }
             });
-            waitUntilWaitingForBuyerLock();
+            waitUntilWaiting(waitingQuery);
 
             clock.setInstant(SALES_CLOSE_AT);
             release.countDown();
             blocker.get(10, TimeUnit.SECONDS);
-
-            assertThat(hold.get(10, TimeUnit.SECONDS)).isInstanceOfSatisfying(SeatHoldRejectedException.class,
-                    e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SALES_CLOSED));
+            return hold.get(10, TimeUnit.SECONDS);
         } finally {
             release.countDown();
             executor.shutdownNow();
             assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
         }
-        assertThat(count("SELECT COUNT(*) FROM orders")).isZero();
-        assertThat(seatStatus(seatId)).isEqualTo("AVAILABLE");
     }
 
-    private void waitUntilWaitingForBuyerLock() throws InterruptedException {
+    private void waitUntilWaiting(String waitingQuery) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (count("SELECT COUNT(*) FROM information_schema.processlist"
-                + " WHERE info LIKE 'INSERT INTO showtime_buyer%'") == 0) {
+        while (jdbcTemplate.queryForObject("SELECT COUNT(*) FROM information_schema.processlist"
+                + " WHERE id <> CONNECTION_ID() AND info LIKE ?", Integer.class, waitingQuery) == 0) {
             assertThat(System.nanoTime()).isLessThan(deadline);
             Thread.sleep(20);
         }
+    }
+
+    private void assertSalesClosed(Throwable result) {
+        assertThat(result).isInstanceOfSatisfying(SeatHoldRejectedException.class,
+                e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SALES_CLOSED));
     }
 
     private void awaitQuietly(CountDownLatch latch) {
