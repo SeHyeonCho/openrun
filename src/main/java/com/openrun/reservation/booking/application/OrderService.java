@@ -110,8 +110,10 @@ public class OrderService {
         if (!showtime.isSalesOpenAt(now)) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_NOT_OPEN, "아직 판매가 시작되지 않았습니다.");
         }
+        rejectIfSalesClosed(showtime, now);
 
         showtimeBuyerLock.acquire(showtime.getId(), buyerId);
+        rejectIfSalesClosed(showtime, clock.instant());
         long activeSeats = orderSeatRepository.countActiveSeats(showtime.getId(), buyerId, now);
         if (activeSeats + request.requestedSeatCount() > showtime.getMaxSeatsPerUser()) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_LIMIT_EXCEEDED,
@@ -119,14 +121,27 @@ public class OrderService {
         }
 
         List<Seat> seats = request.choosesQuantity()
-                ? lockGeneralSeats(showtime, request.quantity(), now)
-                : lockReservedSeats(showtime, request.seatIds(), now);
+                ? seatRepository.findHoldableGeneralSeatsForUpdate(showtime.getId(), now, request.quantity())
+                : seatRepository.findAllByIdForUpdate(request.seatIds());
+        rejectIfSalesClosed(showtime, clock.instant());
+        if (request.choosesQuantity()) {
+            rejectShortGeneralSeats(seats, request.quantity());
+        } else {
+            rejectSeatsOutsideShowtime(showtime, request.seatIds(), seats);
+            rejectUnavailableSeats(seats, now);
+        }
         expirePreviousOrders(seats, now);
 
         Order order = orderRepository.save(Order.hold(showtime, buyerId, request.buyerName(), now));
         seats.forEach(seat -> seat.hold(order, now));
         orderSeatRepository.saveAll(seats.stream().map(seat -> OrderSeat.of(order, seat)).toList());
         return order;
+    }
+
+    private void rejectIfSalesClosed(Showtime showtime, Instant at) {
+        if (showtime.isSalesClosedAt(at)) {
+            throw new SeatHoldRejectedException(SeatHoldRejection.SALES_CLOSED, "판매가 끝났습니다.");
+        }
     }
 
     private OrderResponse orderResponse(Order order, Long viewerBuyerId, Instant now) {
@@ -237,19 +252,10 @@ public class OrderService {
         }
     }
 
-    private List<Seat> lockGeneralSeats(Showtime showtime, int quantity, Instant now) {
-        List<Seat> seats = seatRepository.findHoldableGeneralSeatsForUpdate(showtime.getId(), now, quantity);
+    private void rejectShortGeneralSeats(List<Seat> seats, int quantity) {
         if (seats.size() < quantity) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_NOT_AVAILABLE, "남은 좌석이 요청한 수량보다 적습니다.");
         }
-        return seats;
-    }
-
-    private List<Seat> lockReservedSeats(Showtime showtime, List<Long> seatIds, Instant now) {
-        List<Seat> seats = seatRepository.findAllByIdForUpdate(seatIds);
-        rejectSeatsOutsideShowtime(showtime, seatIds, seats);
-        rejectUnavailableSeats(seats, now);
-        return seats;
     }
 
     private ErrorResponseException badRequest(String detail) {

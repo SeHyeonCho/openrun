@@ -2,6 +2,7 @@ package com.openrun.reservation.booking.api;
 
 import static com.openrun.reservation.TestLogin.holdHeaders;
 import static com.openrun.reservation.TestLogin.loginAs;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -91,6 +92,23 @@ class OrderApiTest {
         createOrder(showtime.getId(), 1L, List.of(seat))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SALES_NOT_OPEN"));
+    }
+
+    @Test
+    @DisplayName("판매 마감 뒤에는 SALES_CLOSED로 거부하고 주문을 만들지 않는다")
+    void rejectsAfterSalesClose() throws Exception {
+        Performance performance = performanceRepository.save(Performance.create("판매 마감 공연", "테스트 공연장"));
+        Instant now = Instant.now();
+        Instant startsAt = now.plus(Duration.ofDays(1));
+        Showtime showtime = showtimeRepository.save(Showtime.create(performance, SeatType.RESERVED,
+                startsAt, startsAt.plus(Duration.ofHours(2)),
+                now.minus(Duration.ofDays(2)), now.minus(Duration.ofHours(1)), 10, 4));
+        Long seat = saveSeat(showtime, "A1").getId();
+
+        createOrder(showtime.getId(), 1L, List.of(seat))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SALES_CLOSED"));
+        assertThat(seatRepository.findById(seat).orElseThrow().getStatus().name()).isEqualTo("AVAILABLE");
     }
 
     @Test
