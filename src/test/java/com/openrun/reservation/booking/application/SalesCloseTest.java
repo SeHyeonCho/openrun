@@ -18,6 +18,7 @@ import com.openrun.reservation.booking.domain.ShowtimeRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,8 @@ class SalesCloseTest {
     private static final Instant SALES_CLOSE_AT = STARTS_AT.minus(Duration.ofHours(1));
     private static final Instant JUST_BEFORE_CLOSE = SALES_CLOSE_AT.minus(1, ChronoUnit.MICROS);
     private static final int HOLD_MINUTES = 10;
+    private static final int GENERAL_SEATS = 10;
+    private static final int BUYERS = 20;
 
     @Autowired
     private HoldService holdService;
@@ -195,6 +198,70 @@ class SalesCloseTest {
 
         assertSalesClosed(result);
         assertThat(dbState(seatId)).isEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("마감 직전 자유석 재고보다 많은 구매자가 동시에 선점해도 재고를 넘지 않고, 마감 시각의 동시 선점은 모두 SALES_CLOSED이며 아무것도 바꾸지 않는다")
+    void concurrentGeneralHoldsAroundSalesCloseNeverExceedStock() throws Exception {
+        Showtime showtime = createShowtime(SeatType.GENERAL);
+        for (int i = 1; i <= GENERAL_SEATS; i++) {
+            saveSeat(showtime, SeatType.GENERAL, String.valueOf(i));
+        }
+
+        clock.setInstant(JUST_BEFORE_CLOSE);
+        List<Throwable> beforeClose = holdConcurrently(showtime, 1L);
+        long succeeded = beforeClose.stream().filter(result -> result == null).count();
+        assertThat(succeeded).isLessThanOrEqualTo(GENERAL_SEATS);
+        assertThat(beforeClose).filteredOn(result -> result != null).allSatisfy(result ->
+                assertThat(result).isInstanceOfSatisfying(SeatHoldRejectedException.class,
+                        e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_NOT_AVAILABLE)));
+        assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo((int) succeeded);
+        assertThat(count("""
+                SELECT COUNT(*) FROM seat s
+                JOIN orders o ON o.id = s.current_order_id
+                JOIN order_seat os ON os.order_id = o.id AND os.seat_id = s.id
+                WHERE s.status = 'HELD'
+                """)).isEqualTo((int) succeeded);
+        assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo((int) succeeded);
+
+        clock.setInstant(SALES_CLOSE_AT);
+        List<Throwable> atClose = holdConcurrently(showtime, 1L + BUYERS);
+        assertThat(atClose).allSatisfy(this::assertSalesClosed);
+        assertThat(count("SELECT COUNT(*) FROM orders")).isEqualTo((int) succeeded);
+        assertThat(count("SELECT COUNT(*) FROM seat WHERE status = 'HELD'")).isEqualTo((int) succeeded);
+        assertThat(count("SELECT COUNT(*) FROM order_seat")).isEqualTo((int) succeeded);
+    }
+
+    private List<Throwable> holdConcurrently(Showtime showtime, long firstBuyerId) throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(BUYERS);
+        List<Throwable> results = new ArrayList<>();
+        try {
+            CountDownLatch ready = new CountDownLatch(BUYERS);
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<Throwable>> futures = new ArrayList<>();
+            for (long buyerId = firstBuyerId; buyerId < firstBuyerId + BUYERS; buyerId++) {
+                long buyer = buyerId;
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    try {
+                        holdService.hold(buyer, UUID.randomUUID(), general(showtime, 1));
+                        return null;
+                    } catch (SeatHoldRejectedException e) {
+                        return e;
+                    }
+                }));
+            }
+            ready.await();
+            start.countDown();
+            for (Future<Throwable> future : futures) {
+                results.add(future.get(30, TimeUnit.SECONDS));
+            }
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        }
+        return results;
     }
 
     private Map<String, Object> dbState(Long seatId) {
