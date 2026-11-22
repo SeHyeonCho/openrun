@@ -18,7 +18,9 @@ import com.openrun.reservation.booking.domain.ShowtimeRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -158,6 +160,7 @@ class SalesCloseTest {
 
         assertSalesClosed(result);
         assertThat(count("SELECT COUNT(*) FROM orders")).isZero();
+        assertThat(count("SELECT COUNT(*) FROM order_seat")).isZero();
         assertThat(seatStatus(seatId)).isEqualTo("AVAILABLE");
     }
 
@@ -168,11 +171,13 @@ class SalesCloseTest {
         Long seatId = saveSeat(showtime, SeatType.RESERVED, "A1");
         clock.setInstant(JUST_BEFORE_CLOSE);
         holdService.hold(2L, UUID.randomUUID(), reserved(showtime, seatId));
+        Map<String, Object> before = dbState(seatId);
 
         Throwable result = holdWhileBlocked(() -> showtimeBuyerLock.acquire(showtime.getId(), 1L),
                 "INSERT INTO showtime_buyer%", reserved(showtime, seatId));
 
         assertSalesClosed(result);
+        assertThat(dbState(seatId)).isEqualTo(before);
     }
 
     @Test
@@ -182,12 +187,22 @@ class SalesCloseTest {
         Long seatId = saveSeat(showtime, SeatType.RESERVED, "A1");
         clock.setInstant(JUST_BEFORE_CLOSE);
         holdService.hold(2L, UUID.randomUUID(), reserved(showtime, seatId));
+        Map<String, Object> before = dbState(seatId);
 
         Throwable result = holdWhileBlocked(
                 () -> jdbcTemplate.queryForList("SELECT id FROM seat WHERE id = ? FOR UPDATE", seatId),
                 "select%from seat%for update%", reserved(showtime, seatId));
 
         assertSalesClosed(result);
+        assertThat(dbState(seatId)).isEqualTo(before);
+    }
+
+    private Map<String, Object> dbState(Long seatId) {
+        Map<String, Object> state = new HashMap<>(jdbcTemplate.queryForMap(
+                "SELECT status, current_order_id, held_until FROM seat WHERE id = ?", seatId));
+        state.put("orders", count("SELECT COUNT(*) FROM orders"));
+        state.put("order_seat", count("SELECT COUNT(*) FROM order_seat"));
+        return state;
     }
 
     private Throwable holdWhileBlocked(Runnable lock, String waitingQuery, CreateOrderRequest request)
