@@ -6,9 +6,12 @@ import com.openrun.reservation.DatabaseCleaner;
 import com.openrun.reservation.MutableClock;
 import com.openrun.reservation.MutableClockConfiguration;
 import com.openrun.reservation.TestcontainersConfiguration;
+import com.openrun.reservation.booking.domain.Performance;
 import com.openrun.reservation.booking.domain.PerformanceRepository;
 import com.openrun.reservation.booking.domain.SalesStatus;
 import com.openrun.reservation.booking.domain.SeatRepository;
+import com.openrun.reservation.booking.domain.SeatType;
+import com.openrun.reservation.booking.domain.Showtime;
 import com.openrun.reservation.booking.domain.ShowtimeRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -99,7 +102,23 @@ class LocalSampleDataLoaderTest {
 
         assertThat(performanceRepository.count()).isEqualTo(2);
         assertThat(seatRepository.count()).isEqualTo(seats * 2);
-        assertThat(showtimeRepository.existsBySalesCloseAtAfter(clock.instant())).isTrue();
+        assertThat(showtimeRepository.existsBySalesOpenAtLessThanEqualAndSalesCloseAtAfter(clock.instant(),
+                clock.instant())).isTrue();
+    }
+
+    @Test
+    @DisplayName("판매 시작 전 회차만 있으면 판매 중인 회차가 없으므로 샘플 공연을 새로 만든다")
+    void createsSampleWhenOnlyBeforeSaleShowtimeExists() {
+        Performance performance = performanceRepository.save(Performance.create("판매 전 공연", "테스트 공연장"));
+        Instant startsAt = NOW.plus(Duration.ofDays(14));
+        showtimeRepository.save(Showtime.create(performance, SeatType.GENERAL, startsAt,
+                startsAt.plus(Duration.ofHours(2)), NOW.plus(Duration.ofDays(1)), 10, 4));
+        clock.setInstant(NOW);
+
+        load();
+
+        assertThat(performanceRepository.count()).isEqualTo(2);
+        assertThat(showtimeRepository.existsBySalesOpenAtLessThanEqualAndSalesCloseAtAfter(NOW, NOW)).isTrue();
     }
 
     private void load() {

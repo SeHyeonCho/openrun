@@ -38,12 +38,13 @@ public class LocalSampleDataLoader implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (showtimeRepository.existsBySalesCloseAtAfter(clock.instant())) {
+        Instant now = clock.instant();
+        if (showtimeRepository.existsBySalesOpenAtLessThanEqualAndSalesCloseAtAfter(now, now)) {
             return;
         }
         Performance performance = performanceRepository.save(
                 Performance.create("샘플 밴드 단독 공연", "샘플 라이브홀", SAMPLE_POSTER_URL));
-        Instant salesOpenAt = clock.instant().truncatedTo(ChronoUnit.HOURS);
+        Instant salesOpenAt = now.truncatedTo(ChronoUnit.HOURS);
         Instant firstDay = salesOpenAt.plus(Duration.ofDays(14));
         Instant secondDay = firstDay.plus(Duration.ofDays(1));
 

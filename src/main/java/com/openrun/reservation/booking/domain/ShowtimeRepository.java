@@ -8,5 +8,5 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
 
     List<Showtime> findAllByPerformanceIdOrderByStartsAtAscIdAsc(Long performanceId);
 
-    boolean existsBySalesCloseAtAfter(Instant now);
+    boolean existsBySalesOpenAtLessThanEqualAndSalesCloseAtAfter(Instant openedBy, Instant closedAfter);
 }
