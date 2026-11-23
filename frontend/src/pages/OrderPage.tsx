@@ -208,8 +208,8 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     };
 
     const closeSheet = useCallback(() => setSheetOpen(false), []);
-    const retryPath = `/shows/${order.performance.id}/showtimes/${order.showtime.id}/quantity`;
-    const showPath = `/shows/${order.performance.id}`;
+    const retryPath = `/performances/${order.performance.id}/showtimes/${order.showtime.id}/quantity`;
+    const showPath = `/performances/${order.performance.id}`;
     const header = <Header />;
 
     if (!order.isOwner) {

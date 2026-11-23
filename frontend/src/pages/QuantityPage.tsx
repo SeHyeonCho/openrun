@@ -27,14 +27,14 @@ const NOT_OPEN_MAX_RETRIES = 5;
 type Phase = { kind: 'idle' } | { kind: 'holding' } | { kind: 'waitingOpen' } | { kind: 'resending' } | { kind: 'unknown' } | { kind: 'closed' };
 
 export function QuantityPage() {
-    const { showId = '', showtimeId = '' } = useParams();
+    const { performanceId = '', showtimeId = '' } = useParams();
     const text = copy.quantityPage;
-    const performanceQuery = usePerformance(showId);
+    const performanceQuery = usePerformance(performanceId);
     const meQuery = useMe();
     const me = meQuery.data ?? null;
     const showtime = performanceQuery.data?.showtimes.find((s) => String(s.id) === showtimeId) ?? null;
     const availabilityQuery = useAvailability(Number(showtimeId), Boolean(me && showtime));
-    const header = <Header title={text.title} backTo={`/shows/${showId}`} />;
+    const header = <Header title={text.title} backTo={`/performances/${performanceId}`} />;
 
     if (performanceQuery.isPending || meQuery.isPending) {
         return <Page header={header}><Loading /></Page>;
@@ -42,12 +42,12 @@ export function QuantityPage() {
     if (performanceQuery.isError) {
         return (
             <Page header={header}>
-                {isNotFound(performanceQuery.error) ? <Notice title={copy.showPage.notFound} body={copy.showPage.notFoundBody} /> : <LoadError onRetry={() => performanceQuery.refetch()} />}
+                {isNotFound(performanceQuery.error) ? <Notice title={copy.performancePage.notFound} body={copy.performancePage.notFoundBody} /> : <LoadError onRetry={() => performanceQuery.refetch()} />}
             </Page>
         );
     }
     if (!showtime) {
-        return <Page header={header}><Notice title={text.notFound} body={copy.showPage.notFoundBody} /></Page>;
+        return <Page header={header}><Notice title={text.notFound} body={copy.performancePage.notFoundBody} /></Page>;
     }
     if (meQuery.isError) {
         return <Page header={header}><LoadError onRetry={() => meQuery.refetch()} /></Page>;
@@ -223,7 +223,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
 
     const showWhen = formatShowtime(showtime.startsAt, showtime.endsAt);
     const summary = <ShowSummary title={performance.title} when={showWhen} where={`${performance.venue} · ${copy.seatKind[showtime.seatKind]}`} />;
-    const backToShow = `/shows/${performance.id}`;
+    const backToShow = `/performances/${performance.id}`;
 
     if (phase.kind === 'unknown') {
         const unknown = text.unknown;
@@ -276,7 +276,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     const busy = phase.kind === 'holding' || phase.kind === 'waitingOpen' || phase.kind === 'resending';
     const cta = beforeSale ? (
         <Button disabled>
-            {copy.showPage.cta.beforeSale} <span className={styles.countdown}>{formatCountdown(msUntil(showtime.salesOpensAt, now))}</span>
+            {copy.performancePage.cta.beforeSale} <span className={styles.countdown}>{formatCountdown(msUntil(showtime.salesOpensAt, now))}</span>
         </Button>
     ) : (
         <Button onClick={hold} disabled={busy || !nameOk}>

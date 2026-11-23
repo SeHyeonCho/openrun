@@ -18,7 +18,7 @@ import { formatCountdown, hasReached, msUntil } from '../lib/clock';
 import { formatDateSpan, formatDateTime, formatShowtime, isLatinTitle } from '../lib/format';
 import { effectiveSalesStatus } from '../lib/sales';
 import { useServerNow } from '../lib/useServerNow';
-import styles from './ShowPage.module.css';
+import styles from './PerformancePage.module.css';
 
 const badgeTone: Record<SalesStatus, BadgeTone> = {
     BEFORE_SALE: 'accent',
@@ -28,7 +28,7 @@ const badgeTone: Record<SalesStatus, BadgeTone> = {
 };
 
 function showtimeNote(showtime: ShowtimeSummary, status: SalesStatus) {
-    const note = copy.showPage.note;
+    const note = copy.performancePage.note;
     switch (status) {
         case 'BEFORE_SALE':
             return note.BEFORE_SALE(formatDateTime(showtime.salesOpensAt), showtime.maxSeatsPerBuyer);
@@ -41,9 +41,9 @@ function showtimeNote(showtime: ShowtimeSummary, status: SalesStatus) {
     }
 }
 
-export function ShowPage() {
-    const { showId = '' } = useParams();
-    const performanceQuery = usePerformance(showId);
+export function PerformancePage() {
+    const { performanceId = '' } = useParams();
+    const performanceQuery = usePerformance(performanceId);
 
     if (performanceQuery.isPending) {
         return (
@@ -56,18 +56,18 @@ export function ShowPage() {
         return (
             <Page header={<Header />}>
                 {isNotFound(performanceQuery.error) ? (
-                    <Notice title={copy.showPage.notFound} body={copy.showPage.notFoundBody} />
+                    <Notice title={copy.performancePage.notFound} body={copy.performancePage.notFoundBody} />
                 ) : (
                     <LoadError onRetry={() => performanceQuery.refetch()} />
                 )}
             </Page>
         );
     }
-    return <ShowView performance={performanceQuery.data} refetch={performanceQuery.refetch} />;
+    return <PerformanceView performance={performanceQuery.data} refetch={performanceQuery.refetch} />;
 }
 
-function ShowView({ performance, refetch }: { performance: PerformanceResponse; refetch: () => unknown }) {
-    const text = copy.showPage;
+function PerformanceView({ performance, refetch }: { performance: PerformanceResponse; refetch: () => unknown }) {
+    const text = copy.performancePage;
     const navigate = useNavigate();
     const login = useLogin();
     const toast = useToast();
@@ -94,7 +94,7 @@ function ShowView({ performance, refetch }: { performance: PerformanceResponse; 
         if (!selected) {
             return;
         }
-        const quantityPath = `/shows/${performance.id}/showtimes/${selected.id}/quantity`;
+        const quantityPath = `/performances/${performance.id}/showtimes/${selected.id}/quantity`;
         if (!loggedOut) {
             navigate(quantityPath);
             return;
@@ -108,7 +108,7 @@ function ShowView({ performance, refetch }: { performance: PerformanceResponse; 
 
     const loginHere = async () => {
         try {
-            await login(`/shows/${performance.id}`);
+            await login(`/performances/${performance.id}`);
         } catch {
             toast(copy.common.loginFailed);
         }

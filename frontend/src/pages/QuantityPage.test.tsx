@@ -6,7 +6,7 @@ import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
 import { disabled, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
-const PATH = '/shows/1/showtimes/12/quantity';
+const PATH = '/performances/1/showtimes/12/quantity';
 
 const sentKeys: (string | null)[] = [];
 server.events.on('request:start', ({ request }) => {
@@ -96,7 +96,7 @@ describe('수량 선택', () => {
 
         expect(await screen.findByText('고르는 사이 매진됐어요.')).toBeTruthy();
         expect(screen.getByRole('heading', { name: '매진됐어요' })).toBeTruthy();
-        expect(screen.getByRole('link', { name: '다른 회차 보기' }).getAttribute('href')).toBe('/shows/1');
+        expect(screen.getByRole('link', { name: '다른 회차 보기' }).getAttribute('href')).toBe('/performances/1');
     });
 
     it('1인 최대 좌석 수를 넘으면 한도와 이미 가진 수를 알리고 수량을 줄인다', async () => {

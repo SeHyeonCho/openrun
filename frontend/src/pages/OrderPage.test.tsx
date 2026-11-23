@@ -57,7 +57,7 @@ describe('주문 화면', () => {
 
         expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
         expect(screen.queryByText(/풀렸어요/)).toBeNull();
-        expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/shows/1/showtimes/12/quantity');
+        expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/performances/1/showtimes/12/quantity');
     });
 
     it('취소 확인 시트는 모달 대화상자로 열고, Esc로 닫으면 예매를 그대로 둔다', async () => {
@@ -83,7 +83,7 @@ describe('주문 화면', () => {
     });
 
     it('예매를 취소하고 공연 페이지로 돌아가면 풀린 잔여석을 바로 보여 준다', async () => {
-        const { router } = renderRoute('/shows/1', { loggedIn: true });
+        const { router } = renderRoute('/performances/1', { loggedIn: true });
         fireEvent.click(await screen.findByRole('button', { name: /12\.05 SAT 19:00–21:30/ }));
         expect(screen.getByText(/잔여 50석/)).toBeTruthy();
 
@@ -92,7 +92,7 @@ describe('주문 화면', () => {
         fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '예매 취소' }));
         await screen.findByRole('heading', { name: '예매를 취소했어요' });
 
-        await router.navigate('/shows/1');
+        await router.navigate('/performances/1');
         fireEvent.click(await screen.findByRole('button', { name: /12\.05 SAT 19:00–21:30/ }));
         expect(await screen.findByText(/잔여 52석/)).toBeTruthy();
     });
