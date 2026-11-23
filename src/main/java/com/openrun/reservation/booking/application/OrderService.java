@@ -152,14 +152,15 @@ public class OrderService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public OrderResponse find(String token, Long viewerBuyerId) {
+        Instant now = clock.instant();
         Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
-        return orderResponse(order, viewerBuyerId, clock.instant());
+        return orderResponse(order, viewerBuyerId, now);
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public MyOrdersResponse findMyOrders(Long buyerId) {
-        List<Order> orders = orderRepository.findAllWithShowtimeByBuyerId(buyerId);
         Instant now = clock.instant();
+        List<Order> orders = orderRepository.findAllWithShowtimeByBuyerId(buyerId);
         if (orders.isEmpty()) {
             return new MyOrdersResponse(List.of(), now);
         }

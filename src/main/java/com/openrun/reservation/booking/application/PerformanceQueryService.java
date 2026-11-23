@@ -29,9 +29,9 @@ public class PerformanceQueryService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public PerformanceResponse find(Long performanceId) {
+        Instant now = clock.instant();
         Performance performance = performanceRepository.findById(performanceId)
                 .orElseThrow(() -> new PerformanceNotFoundException(performanceId));
-        Instant now = clock.instant();
         List<Showtime> showtimes = showtimeRepository.findAllByPerformanceIdOrderByStartsAtAscIdAsc(performanceId);
         Map<Long, Long> remaining = showtimes.isEmpty()
                 ? Map.of()
@@ -43,9 +43,9 @@ public class PerformanceQueryService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public AvailabilityResponse availability(Long showtimeId, Long buyerId) {
+        Instant now = clock.instant();
         Showtime showtime = showtimeRepository.findById(showtimeId)
                 .orElseThrow(() -> new ShowtimeNotFoundException(showtimeId));
-        Instant now = clock.instant();
         long remaining = seatRepository.countRemainingByShowtimeIds(List.of(showtimeId), now).stream()
                 .mapToLong(ShowtimeRemaining::remaining)
                 .sum();
