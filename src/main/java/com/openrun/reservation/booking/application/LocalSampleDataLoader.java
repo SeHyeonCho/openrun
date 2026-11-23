@@ -27,6 +27,7 @@ public class LocalSampleDataLoader implements ApplicationRunner {
     private static final int GENERAL_ADMISSION_COUNT = 50;
     private static final int GENERAL_ONSITE_COUNT = 5;
     private static final Duration RUNNING_TIME = Duration.ofHours(2);
+    private static final String SAMPLE_POSTER_URL = "/mock/night-signal-poster.png";
 
     private final PerformanceRepository performanceRepository;
     private final ShowtimeRepository showtimeRepository;
@@ -38,7 +39,7 @@ public class LocalSampleDataLoader implements ApplicationRunner {
         if (performanceRepository.count() > 0) {
             return;
         }
-        Performance performance = performanceRepository.save(Performance.create("샘플 밴드 단독 공연", "샘플 라이브홀"));
+        Performance performance = performanceRepository.save(Performance.create("샘플 밴드 단독 공연", "샘플 라이브홀", SAMPLE_POSTER_URL));
         Instant salesOpenAt = Instant.now().truncatedTo(ChronoUnit.HOURS);
         Instant firstDay = salesOpenAt.plus(Duration.ofDays(14));
         Instant secondDay = firstDay.plus(Duration.ofDays(1));

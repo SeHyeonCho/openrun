@@ -25,12 +25,20 @@ public class Performance extends BaseEntity {
     @Column(nullable = false, length = 200)
     private String venue;
 
-    private Performance(String title, String venue) {
+    @Column(length = 500)
+    private String posterUrl;
+
+    private Performance(String title, String venue, String posterUrl) {
         this.title = title;
         this.venue = venue;
+        this.posterUrl = posterUrl;
     }
 
     public static Performance create(String title, String venue) {
-        return new Performance(title, venue);
+        return create(title, venue, null);
+    }
+
+    public static Performance create(String title, String venue, String posterUrl) {
+        return new Performance(title, venue, posterUrl);
     }
 }
