@@ -45,6 +45,21 @@ describe('수량 선택', () => {
         expect(screen.getByRole('button', { name: '2매 선택 완료' })).toBeTruthy();
     });
 
+    it('지정석 회차의 매수 선택 주소로 들어오면 구매 가능 수를 묻거나 선점하지 않고 공연 페이지로 안내한다', async () => {
+        const requested: string[] = [];
+        const record = ({ request }: { request: Request }) => requested.push(new URL(request.url).pathname);
+        server.events.on('request:start', record);
+
+        renderRoute('/performances/1/showtimes/15/quantity', { loggedIn: true });
+
+        expect(await screen.findByText('지정석은 아직 이 화면에서 예매할 수 없어요')).toBeTruthy();
+        expect(screen.getByRole('link', { name: '공연 페이지로' }).getAttribute('href')).toBe('/performances/1');
+        expect(screen.queryByRole('button', { name: /선택 완료/ })).toBeNull();
+        expect(requested).not.toContain('/api/showtimes/15/availability');
+        expect(requested).not.toContain('/api/orders');
+        server.events.removeListener('request:start', record);
+    });
+
     it('확정까지 주어지는 시간은 고른 회차의 선점 유지 시간으로 알린다', async () => {
         renderRoute(PATH, {
             loggedIn: true,

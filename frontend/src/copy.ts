@@ -67,7 +67,10 @@ export const copy = {
             soldOutNote: '시간 안에 확정되지 않은 표가 다시 풀리면 예매할 수 있어요.',
             closed: '판매 마감',
             closedNote: '이 회차는 판매가 끝났어요.',
+            reserved: '지정석은 준비 중',
+            reservedNote: '지정석은 아직 이 화면에서 예매할 수 없어요. 자유석 회차를 골라 주세요.',
         },
+        reservedNote: (note: string) => `지정석 · ${note}`,
     },
     quantityPage: {
         title: '매수 선택',
@@ -101,6 +104,11 @@ export const copy = {
         closed: {
             title: '이 회차는 판매가 끝났어요',
             body: '판매 마감 시각이 지나 새로 예매할 수 없어요.',
+            cta: '공연 페이지로',
+        },
+        reserved: {
+            title: '지정석은 아직 이 화면에서 예매할 수 없어요',
+            body: '이 화면에서는 자유석 회차만 예매할 수 있어요. 공연 페이지에서 자유석 회차를 골라 주세요.',
             cta: '공연 페이지로',
         },
         limitReached: {

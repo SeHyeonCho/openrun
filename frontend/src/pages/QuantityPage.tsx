@@ -33,7 +33,7 @@ export function QuantityPage() {
     const meQuery = useMe();
     const me = meQuery.data ?? null;
     const showtime = performanceQuery.data?.showtimes.find((s) => String(s.id) === showtimeId) ?? null;
-    const availabilityQuery = useAvailability(Number(showtimeId), Boolean(me && showtime));
+    const availabilityQuery = useAvailability(Number(showtimeId), Boolean(me && showtime?.seatKind === 'GENERAL'));
     const header = <Header title={text.title} backTo={`/performances/${performanceId}`} />;
 
     if (performanceQuery.isPending || meQuery.isPending) {
@@ -48,6 +48,13 @@ export function QuantityPage() {
     }
     if (!showtime) {
         return <Page header={header}><Notice title={text.notFound} body={copy.performancePage.notFoundBody} /></Page>;
+    }
+    if (showtime.seatKind === 'RESERVED') {
+        return (
+            <Page header={header} bottomBar={<BottomBar><ButtonLink to={`/performances/${performanceId}`}>{text.reserved.cta}</ButtonLink></BottomBar>}>
+                <Notice title={text.reserved.title} body={text.reserved.body} />
+            </Page>
+        );
     }
     if (meQuery.isError) {
         return <Page header={header}><LoadError onRetry={() => meQuery.refetch()} /></Page>;

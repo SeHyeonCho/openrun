@@ -1,4 +1,4 @@
-import type { OrderStatus, ProblemCode, SalesStatus } from '../api/types';
+import type { OrderStatus, ProblemCode, SalesStatus, SeatKind } from '../api/types';
 import { currentScenario, type ScenarioId } from './scenarios';
 
 export const MOCK_USER = { id: 'kakao-mock-me', buyerId: 'b_mockMe7Qm2xK', nickname: '밤산책' };
@@ -7,6 +7,7 @@ const OTHER_USER = 'kakao-mock-other';
 export interface MockShowtime {
     id: number;
     performanceId: number;
+    seatKind: SeatKind;
     startsAt: string;
     endsAt: string;
     salesOpensAt: string;
@@ -78,7 +79,7 @@ export function createDb(scenario: ScenarioId): MockDb {
                 title: 'NIGHT SIGNAL',
                 venue: '홍대 라이브홀 B2',
                 posterUrl: '/mock/night-signal-poster.png',
-                showtimeIds: [11, 12, 13, 14],
+                showtimeIds: [11, 12, 13, 14, 15],
             },
             {
                 id: 2,
@@ -92,6 +93,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             {
                 id: 11,
                 performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-04T19:30'),
                 endsAt: kst('2026-12-04T21:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
@@ -104,6 +106,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             {
                 id: 12,
                 performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-05T19:00'),
                 endsAt: kst('2026-12-05T21:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
@@ -116,6 +119,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             {
                 id: 13,
                 performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-06T15:00'),
                 endsAt: kst('2026-12-06T17:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
@@ -128,6 +132,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             {
                 id: 14,
                 performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-06T19:00'),
                 endsAt: kst('2026-12-06T21:30'),
                 salesOpensAt: kst('2026-12-03T20:00'),
@@ -138,8 +143,22 @@ export function createDb(scenario: ScenarioId): MockDb {
                 lastEntryNumber: 0,
             },
             {
+                id: 15,
+                performanceId: 1,
+                seatKind: 'RESERVED',
+                startsAt: kst('2026-12-07T18:00'),
+                endsAt: kst('2026-12-07T20:00'),
+                salesOpensAt: kst('2026-11-01T20:00'),
+                salesClosesAt: kst('2026-12-07T20:00'),
+                capacity: 40,
+                maxSeatsPerBuyer: 4,
+                soldToOthers: 10,
+                lastEntryNumber: 0,
+            },
+            {
                 id: 21,
                 performanceId: 2,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-12T18:00'),
                 endsAt: kst('2026-12-12T20:00'),
                 salesOpensAt: iso(Math.ceil((now + 30_000) / 1000) * 1000),

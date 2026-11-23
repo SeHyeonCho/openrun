@@ -61,6 +61,12 @@ describe('목 API', () => {
         expect(remainingOf(after, after.showtimes.find((s) => s.id === 12)!, mockNow(after))).toBe(0);
     });
 
+    it('지정석 회차를 수량으로 선점하면 서버처럼 400으로 거부한다', async () => {
+        const rejected = await rejection(api.createOrder({ ...request, showtimeId: 15 }, crypto.randomUUID()));
+
+        expect(rejected?.status).toBe(400);
+    });
+
     it('같은 구매자가 같은 식별자와 같은 내용으로 다시 보내면 처음 만든 주문을 그대로 돌려준다', async () => {
         const key = crypto.randomUUID();
         const before = myOrderCount();

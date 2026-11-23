@@ -128,7 +128,7 @@ export const handlers = [
                     salesOpensAt: st.salesOpensAt,
                     salesClosesAt: st.salesClosesAt,
                     holdMinutes: Math.round(holdMsOf(db, st) / 60_000) || 1,
-                    seatKind: 'GENERAL',
+                    seatKind: st.seatKind,
                     salesStatus: salesStatusOf(db, st, now),
                     remaining: remainingOf(db, st, now),
                     maxSeatsPerBuyer: st.maxSeatsPerBuyer,
@@ -200,6 +200,9 @@ export const handlers = [
         const st = db.showtimes.find((s) => s.id === body.showtimeId);
         if (!st) {
             return problem(404);
+        }
+        if (st.seatKind !== 'GENERAL') {
+            return problem(400, undefined, '지정석 회차는 수량 대신 좌석(seatIds)으로 선점한다');
         }
         let now = mockNow(db);
 
@@ -308,8 +311,9 @@ export const handlers = [
             return problem(409, 'ORDER_EXPIRED');
         }
         if (order.status === 'HELD') {
+            const showtime = showtimeOf(db, order);
             order.status = 'CONFIRMED';
-            order.entryNumbers = issueEntryNumbers(showtimeOf(db, order), order.quantity);
+            order.entryNumbers = showtime.seatKind === 'GENERAL' ? issueEntryNumbers(showtime, order.quantity) : [];
         }
         saveDb(db);
         if (db.scenario === 'confirm-lost-once' && firstTime(db, 'confirm')) {

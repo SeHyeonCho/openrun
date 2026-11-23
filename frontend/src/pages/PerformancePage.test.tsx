@@ -46,6 +46,18 @@ describe('공연 페이지', () => {
         expect(disabled(screen.getByRole('button', { name: '예매하기' }))).toBe(false);
     });
 
+    it('지정석 회차는 목록에 보여 주되, 고르면 예매 버튼을 막고 아직 이 화면에서 예매할 수 없다고 알린다', async () => {
+        renderRoute('/performances/1', { loggedIn: true });
+
+        const reserved = await screen.findByRole('button', { name: /12\.07 MON 18:00–20:00/ });
+        expect(within(reserved).getByText('지정석 · 잔여 30석 · 1인 최대 4매')).toBeTruthy();
+
+        fireEvent.click(reserved);
+
+        expect(disabled(screen.getByRole('button', { name: '지정석은 준비 중' }))).toBe(true);
+        expect(screen.getByText('지정석은 아직 이 화면에서 예매할 수 없어요. 자유석 회차를 골라 주세요.')).toBeTruthy();
+    });
+
     it('예매 안내의 확정 시간은 회차의 선점 유지 시간으로 보여 주고, 회차마다 다르면 다르다고 알린다', async () => {
         const { unmount } = renderRoute('/performances/1');
         expect(await screen.findByText('매수를 고른 뒤 10분 안에 예매를 확정하지 않으면 표가 다시 풀려요.')).toBeTruthy();

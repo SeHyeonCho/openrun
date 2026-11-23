@@ -118,6 +118,9 @@ function PerformanceView({ performance, refetch }: { performance: PerformanceRes
         if (!selected || !status) {
             return { label: text.cta.pick, note: text.cta.pickNote, enabled: false };
         }
+        if (selected.seatKind === 'RESERVED' && (status === 'BEFORE_SALE' || status === 'ON_SALE')) {
+            return { label: text.cta.reserved, note: text.cta.reservedNote, enabled: false };
+        }
         switch (status) {
             case 'BEFORE_SALE':
                 return {
@@ -189,7 +192,9 @@ function PerformanceView({ performance, refetch }: { performance: PerformanceRes
                                         <span className="t-data">{formatShowtime(showtime.startsAt, showtime.endsAt)}</span>
                                         <Badge tone={badgeTone[rowStatus]}>{copy.salesStatus[rowStatus]}</Badge>
                                     </span>
-                                    <span className="t-caption">{showtimeNote(showtime, rowStatus)}</span>
+                                    <span className="t-caption">
+                                        {showtime.seatKind === 'RESERVED' ? text.reservedNote(showtimeNote(showtime, rowStatus)) : showtimeNote(showtime, rowStatus)}
+                                    </span>
                                 </button>
                             </li>
                         );
