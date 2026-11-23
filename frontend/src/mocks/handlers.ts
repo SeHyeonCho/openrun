@@ -1,6 +1,6 @@
 import { delay, http, HttpResponse } from 'msw';
 import { CSRF_COOKIE, CSRF_HEADER } from '../api/client';
-import { IDEMPOTENCY_HEADER } from '../api/queries';
+import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
 import type {
     AvailabilityResponse,
     CreateOrderRequest,
@@ -17,6 +17,7 @@ import {
     isLive,
     loadDb,
     MOCK_USER,
+    OTHER_BUYER_ID,
     mockNow,
     newToken,
     ownedCountOf,
@@ -182,6 +183,14 @@ export const handlers = [
         }
         if (!key) {
             return problem(400, undefined, '선점 요청에는 Idempotency-Key가 필요하다');
+        }
+        const expectedBuyerId = request.headers.get(EXPECTED_BUYER_HEADER);
+        if (!expectedBuyerId) {
+            return problem(400, undefined, '선점 요청에는 Expected-Buyer-Id가 필요하다');
+        }
+        const loggedInBuyerId = db.scenario === 'buyer-changed' ? OTHER_BUYER_ID : MOCK_USER.buyerId;
+        if (expectedBuyerId !== loggedInBuyerId) {
+            return problem(409, 'BUYER_CHANGED');
         }
         const quantity = Number(body.quantity);
         const buyerName = String(body.buyerName ?? '').trim();

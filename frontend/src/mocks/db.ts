@@ -3,6 +3,7 @@ import { currentScenario, type ScenarioId } from './scenarios';
 
 export const MOCK_USER = { id: 'kakao-mock-me', buyerId: 'b_mockMe7Qm2xK', nickname: '밤산책' };
 const OTHER_USER = 'kakao-mock-other';
+export const OTHER_BUYER_ID = 'b_mockOther9Lr';
 
 export interface MockShowtime {
     id: number;

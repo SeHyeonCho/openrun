@@ -15,6 +15,8 @@ const prepare = async (scenario: ScenarioId = 'default') => {
     await api.getMe();
 };
 
+const create = (body: typeof request, key: string) => api.createOrder(body, key, MOCK_USER.buyerId);
+
 const rejection = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => error as ApiError);
 
 const myOrderCount = () => loadDb().orders.filter((o) => o.ownerId === MOCK_USER.id && o.showtimeId === 12).length;
@@ -36,7 +38,7 @@ describe('목 API', () => {
     });
 
     it('선점 요청이 겹쳐도 서로의 주문을 덮어쓰지 않고, 선점한 주문에는 입장번호를 주지 않는다', async () => {
-        const [first, second] = await Promise.all([api.createOrder(request, crypto.randomUUID()), api.createOrder(request, crypto.randomUUID())]);
+        const [first, second] = await Promise.all([create(request, crypto.randomUUID()), create(request, crypto.randomUUID())]);
 
         expect(first.token).not.toBe(second.token);
         expect(first.entryNumbers).toEqual([]);
@@ -47,8 +49,8 @@ describe('목 API', () => {
     });
 
     it('입장번호는 확정한 순서대로 회차의 다음 번호를 주고, 한 주문의 여러 장은 이어진 번호를 받으며, 다시 확정해도 바뀌지 않는다', async () => {
-        const early = await api.createOrder({ ...request, quantity: 2 }, crypto.randomUUID());
-        const late = await api.createOrder(request, crypto.randomUUID());
+        const early = await create({ ...request, quantity: 2 }, crypto.randomUUID());
+        const late = await create(request, crypto.randomUUID());
 
         const lateConfirmed = await api.confirmOrder(late.token);
         const earlyConfirmed = await api.confirmOrder(early.token);
@@ -65,7 +67,7 @@ describe('목 API', () => {
         shrinkRemainingTo(db, showtime, 3, mockNow(db));
         saveDb(db);
 
-        const results = await Promise.allSettled(Array.from({ length: 8 }, () => api.createOrder(request, crypto.randomUUID())));
+        const results = await Promise.allSettled(Array.from({ length: 8 }, () => create(request, crypto.randomUUID())));
 
         const succeeded = results.filter((r) => r.status === 'fulfilled');
         const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
@@ -75,8 +77,21 @@ describe('목 API', () => {
         expect(remainingOf(after, after.showtimes.find((s) => s.id === 12)!, mockNow(after))).toBe(0);
     });
 
+    it('Expected-Buyer-Id가 없으면 400, 로그인한 구매자와 다르면 409 BUYER_CHANGED로 거부하고, 그 식별자를 기억하지 않는다', async () => {
+        const key = crypto.randomUUID();
+
+        const missing = await rejection(api.createOrder(request, key, ''));
+        const changed = await rejection(api.createOrder(request, key, 'b_someoneElse'));
+        const created = await create(request, key);
+
+        expect(missing?.status).toBe(400);
+        expect(changed?.status).toBe(409);
+        expect(changed?.code).toBe('BUYER_CHANGED');
+        expect(created.status).toBe('HELD');
+    });
+
     it('지정석 회차를 수량으로 선점하면 서버처럼 400으로 거부한다', async () => {
-        const rejected = await rejection(api.createOrder({ ...request, showtimeId: 15 }, crypto.randomUUID()));
+        const rejected = await rejection(create({ ...request, showtimeId: 15 }, crypto.randomUUID()));
 
         expect(rejected?.status).toBe(400);
     });
@@ -85,8 +100,8 @@ describe('목 API', () => {
         const key = crypto.randomUUID();
         const before = myOrderCount();
 
-        const first = await api.createOrder(request, key);
-        const again = await api.createOrder(request, key);
+        const first = await create(request, key);
+        const again = await create(request, key);
 
         expect(again.token).toBe(first.token);
         expect(myOrderCount()).toBe(before + 1);
@@ -96,7 +111,7 @@ describe('목 API', () => {
         const key = crypto.randomUUID();
         const before = myOrderCount();
 
-        const [first, second] = await Promise.all([api.createOrder(request, key), api.createOrder(request, key)]);
+        const [first, second] = await Promise.all([create(request, key), create(request, key)]);
 
         expect(second.token).toBe(first.token);
         expect(myOrderCount()).toBe(before + 1);
@@ -106,8 +121,8 @@ describe('목 API', () => {
         await prepare('sales-not-open-once');
         const key = crypto.randomUUID();
 
-        const first = await rejection(api.createOrder(request, key));
-        const again = await rejection(api.createOrder(request, key));
+        const first = await rejection(create(request, key));
+        const again = await rejection(create(request, key));
 
         expect(first?.code).toBe('SALES_NOT_OPEN');
         expect(again?.code).toBe('SALES_NOT_OPEN');
@@ -115,9 +130,9 @@ describe('목 API', () => {
 
     it('같은 식별자를 다른 내용으로 보내면 식별자를 잘못 다시 쓴 것으로 보고 거부한다', async () => {
         const key = crypto.randomUUID();
-        await api.createOrder(request, key);
+        await create(request, key);
 
-        const reused = await rejection(api.createOrder({ ...request, quantity: 2 }, key));
+        const reused = await rejection(create({ ...request, quantity: 2 }, key));
 
         expect(reused?.status).toBe(422);
         expect(reused?.code).toBe('IDEMPOTENCY_KEY_REUSED');

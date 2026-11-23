@@ -126,6 +126,11 @@ export const copy = {
             retry: '다시 시도',
             note: '다시 시도해도 같은 요청으로 보내서 예매는 하나만 생겨요.',
         },
+        buyerChanged: {
+            title: '다른 계정으로 로그인돼 있어요',
+            body: '예매를 시작한 뒤 다른 카카오 계정으로 로그인해서 요청을 보내지 않았어요. 예매를 시작한 계정으로 다시 로그인해 예매 내역에서 확인해 주세요.',
+            toMyOrders: '예매 내역 보기',
+        },
         problem: {
             SALES_NOT_OPEN: '아직 판매 전이에요. 잠시 뒤 다시 시도할게요.',
             salesNotOpenGaveUp: '아직 판매 전이에요. 잠시 뒤 다시 눌러 주세요.',

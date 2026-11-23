@@ -13,10 +13,10 @@ export type ProblemCode =
     | 'SEAT_NOT_IN_SHOWTIME'
     | 'SEAT_NOT_AVAILABLE'
     | 'ORDER_EXPIRED'
-    | 'ORDER_NOT_OWNED'
     | 'ORDER_CANCELLED'
     | 'ORDER_CONFIRMED'
-    | 'IDEMPOTENCY_KEY_REUSED';
+    | 'IDEMPOTENCY_KEY_REUSED'
+    | 'BUYER_CHANGED';
 
 export interface ProblemDetail {
     type?: string;

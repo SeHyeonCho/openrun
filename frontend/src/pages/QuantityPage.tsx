@@ -24,7 +24,14 @@ import styles from './QuantityPage.module.css';
 
 const NOT_OPEN_RETRY_MS = 1_500;
 const NOT_OPEN_MAX_RETRIES = 5;
-type Phase = { kind: 'idle' } | { kind: 'holding' } | { kind: 'waitingOpen' } | { kind: 'resending' } | { kind: 'unknown' } | { kind: 'closed' };
+type Phase =
+    | { kind: 'idle' }
+    | { kind: 'holding' }
+    | { kind: 'waitingOpen' }
+    | { kind: 'resending' }
+    | { kind: 'unknown' }
+    | { kind: 'closed' }
+    | { kind: 'buyerChanged' };
 
 export function QuantityPage() {
     const { performanceId = '', showtimeId = '' } = useParams();
@@ -114,7 +121,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     const [buyerName, setBuyerName] = useState(me.nickname);
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
     const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    const pending = useRef<{ key: string; body: CreateOrderRequest } | null>(null);
+    const pending = useRef<{ key: string; body: CreateOrderRequest; buyerId: string } | null>(null);
 
     const unmounted = useRef(false);
 
@@ -150,6 +157,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         pending.current = {
             key: newIdempotencyKey(),
             body: { showtimeId: showtime.id, quantity: chosen, buyerName: buyerName.trim() },
+            buyerId: me.buyerId,
         };
         void send(0, 0);
     };
@@ -161,7 +169,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         }
         setPhase({ kind: resendCount > 0 ? 'resending' : 'holding' });
         try {
-            const order = await api.createOrder(request.body, request.key);
+            const order = await api.createOrder(request.body, request.key, request.buyerId);
             pending.current = null;
             queryClient.setQueryData(queryKeys.order(order.token), order);
             void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtime.id) });
@@ -183,6 +191,10 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
                 setPhase({ kind: 'unknown' });
                 return;
             }
+            if (isApiError(error, 'BUYER_CHANGED')) {
+                setPhase({ kind: 'buyerChanged' });
+                return;
+            }
             pending.current = null;
             if (isUnauthorized(error)) {
                 setPhase({ kind: 'idle' });
@@ -194,7 +206,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
                     toast(text.problem.SALES_NOT_OPEN);
                     setPhase({ kind: 'waitingOpen' });
                     retryTimer.current = setTimeout(() => {
-                        pending.current = { key: newIdempotencyKey(), body: request.body };
+                        pending.current = { ...request, key: newIdempotencyKey() };
                         void send(notOpenAttempt + 1, 0);
                     }, NOT_OPEN_RETRY_MS);
                     return;
@@ -248,6 +260,16 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
             >
                 {summary}
                 <Notice title={unknown.title} body={unknown.body} variant="outlined" centered live />
+            </Page>
+        );
+    }
+
+    if (phase.kind === 'buyerChanged') {
+        const changed = text.buyerChanged;
+        return (
+            <Page header={header} bottomBar={<BottomBar><ButtonLink to="/me/orders">{changed.toMyOrders}</ButtonLink></BottomBar>}>
+                {summary}
+                <Notice title={changed.title} body={changed.body} variant="outlined" centered live />
             </Page>
         );
     }

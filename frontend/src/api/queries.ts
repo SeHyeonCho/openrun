@@ -11,6 +11,8 @@ import type {
 
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 
+export const EXPECTED_BUYER_HEADER = 'Expected-Buyer-Id';
+
 export const newIdempotencyKey = () => crypto.randomUUID();
 
 export const queryKeys = {
@@ -28,8 +30,12 @@ export const api = {
     getPerformance: (performanceId: string) =>
         request<PerformanceResponse>(`/performances/${encodeURIComponent(performanceId)}`),
     getAvailability: (showtimeId: number) => request<AvailabilityResponse>(`/showtimes/${showtimeId}/availability`),
-    createOrder: (body: CreateOrderRequest, idempotencyKey: string) =>
-        request<OrderResponse>('/orders', { method: 'POST', body, headers: { [IDEMPOTENCY_HEADER]: idempotencyKey } }),
+    createOrder: (body: CreateOrderRequest, idempotencyKey: string, buyerId: string) =>
+        request<OrderResponse>('/orders', {
+            method: 'POST',
+            body,
+            headers: { [IDEMPOTENCY_HEADER]: idempotencyKey, [EXPECTED_BUYER_HEADER]: buyerId },
+        }),
     getOrder: (token: string) => request<OrderResponse>(`/orders/${encodeURIComponent(token)}`),
     confirmOrder: (token: string) => request<OrderResponse>(`/orders/${encodeURIComponent(token)}/confirm`, { method: 'POST' }),
     cancelOrder: (token: string) => request<OrderResponse>(`/orders/${encodeURIComponent(token)}/cancel`, { method: 'POST' }),

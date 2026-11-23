@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
-import { IDEMPOTENCY_HEADER } from '../api/queries';
+import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
 import { disabled, finishKakaoLogin, renderRoute } from '../test/render';
 import { server } from '../test/setup';
@@ -9,9 +9,11 @@ import { server } from '../test/setup';
 const PATH = '/performances/1/showtimes/12/quantity';
 
 const sentKeys: (string | null)[] = [];
+const sentBuyers: (string | null)[] = [];
 server.events.on('request:start', ({ request }) => {
     if (request.method === 'POST' && new URL(request.url).pathname === '/api/orders') {
         sentKeys.push(request.headers.get(IDEMPOTENCY_HEADER));
+        sentBuyers.push(request.headers.get(EXPECTED_BUYER_HEADER));
     }
 });
 
@@ -33,6 +35,7 @@ const hold = (quantity: number) => fireEvent.click(screen.getByRole('button', { 
 describe('수량 선택', () => {
     afterEach(() => {
         sentKeys.length = 0;
+        sentBuyers.length = 0;
     });
 
     it('1인 최대 좌석 수에서 이미 가진 수를 뺀 만큼까지만 고를 수 있다', async () => {
@@ -90,6 +93,28 @@ describe('수량 선택', () => {
         hold(2);
 
         await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+    });
+
+    it('선점 요청에 로그인한 구매자의 buyerId를 Expected-Buyer-Id 헤더로 담는다', async () => {
+        renderRoute(PATH, { loggedIn: true });
+
+        await screen.findByRole('button', { name: '1매 선택 완료' });
+        hold(1);
+
+        await waitFor(() => expect(sentBuyers).toEqual([MOCK_USER.buyerId]));
+    });
+
+    it('그사이 다른 계정으로 로그인돼 BUYER_CHANGED를 받으면 다시 보내지 않고, 예매를 시작한 계정으로 예매 내역에서 확인하라고 안내한다', async () => {
+        renderRoute(PATH, { scenario: 'buyer-changed', loggedIn: true, prepare: withoutOwnHold });
+
+        await screen.findByRole('button', { name: '1매 선택 완료' });
+        hold(1);
+
+        expect(await screen.findByRole('heading', { name: '다른 계정으로 로그인돼 있어요' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: '예매 내역 보기' }).getAttribute('href')).toBe('/me/orders');
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        expect(sentKeys).toHaveLength(1);
+        expect(myHeldOrders()).toHaveLength(0);
     });
 
     it('고르는 사이 남은 수가 줄면 새 남은 수를 알리고 수량을 줄인다', async () => {
