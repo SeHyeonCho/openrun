@@ -105,7 +105,17 @@ public class Showtime extends BaseEntity {
         return !now.isBefore(salesCloseAt);
     }
 
-    public Instant holdDeadlineFrom(Instant now) {
+    public SalesStatus salesStatusAt(Instant now, long remaining) {
+        if (!isSalesOpenAt(now)) {
+            return SalesStatus.BEFORE_SALE;
+        }
+        if (isSalesClosedAt(now)) {
+            return SalesStatus.SALES_CLOSED;
+        }
+        return remaining == 0 ? SalesStatus.SOLD_OUT : SalesStatus.ON_SALE;
+    }
+
+        public Instant holdDeadlineFrom(Instant now) {
         return now.plus(Duration.ofMinutes(holdMinutes));
     }
 }

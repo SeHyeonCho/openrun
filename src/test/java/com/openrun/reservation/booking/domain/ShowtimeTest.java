@@ -55,6 +55,22 @@ class ShowtimeTest {
         assertThat(showtime.isSalesClosedAt(ENDS_AT)).isTrue();
     }
 
+    @Test
+    @DisplayName("판매 상태는 판매 시작 전 BEFORE_SALE, 마감 시각부터 SALES_CLOSED, 그 사이 남은 수가 0이면 SOLD_OUT, 아니면 ON_SALE이다")
+    void salesStatusFollowsTimeThenRemaining() {
+        Instant salesCloseAt = STARTS_AT.minus(Duration.ofHours(1));
+        Showtime showtime = create(salesCloseAt);
+        long micro = 1_000;
+
+        assertThat(showtime.salesStatusAt(SALES_OPEN_AT.minusNanos(micro), 5)).isEqualTo(SalesStatus.BEFORE_SALE);
+        assertThat(showtime.salesStatusAt(SALES_OPEN_AT.minusNanos(micro), 0)).isEqualTo(SalesStatus.BEFORE_SALE);
+        assertThat(showtime.salesStatusAt(SALES_OPEN_AT, 5)).isEqualTo(SalesStatus.ON_SALE);
+        assertThat(showtime.salesStatusAt(SALES_OPEN_AT, 0)).isEqualTo(SalesStatus.SOLD_OUT);
+        assertThat(showtime.salesStatusAt(salesCloseAt.minusNanos(micro), 5)).isEqualTo(SalesStatus.ON_SALE);
+        assertThat(showtime.salesStatusAt(salesCloseAt, 5)).isEqualTo(SalesStatus.SALES_CLOSED);
+        assertThat(showtime.salesStatusAt(salesCloseAt, 0)).isEqualTo(SalesStatus.SALES_CLOSED);
+    }
+
     private Showtime create(Instant salesCloseAt) {
         return Showtime.create(performance, SeatType.RESERVED, STARTS_AT, ENDS_AT, SALES_OPEN_AT, salesCloseAt, 10, 4);
     }
