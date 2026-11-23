@@ -387,6 +387,24 @@ describe('수량 선택', () => {
         expect(storedHold()).toBeNull();
     }, 10_000);
 
+    it('같은 화면에서 회차가 바뀌면 바뀐 회차에 보관한 요청을 다시 확인한다', async () => {
+        const { router } = renderRoute('/performances/1/showtimes/14/quantity', { loggedIn: true, prepare: withoutOwnHold });
+        await screen.findByRole('button', { name: /판매 시작까지/ });
+        await router.navigate(PATH);
+        await screen.findByRole('button', { name: '1매 선택 완료' });
+        const key = crypto.randomUUID();
+        saveHoldRequest({
+            key,
+            body: { showtimeId: 14, quantity: 1, buyerName: '밤산책' },
+            buyerId: MOCK_USER.buyerId,
+            createdAt: new Date().toISOString(),
+        });
+
+        await router.navigate('/performances/1/showtimes/14/quantity');
+
+        await waitFor(() => expect(sentKeys).toContain(key));
+    });
+
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
         const view = renderRoute(PATH);
 

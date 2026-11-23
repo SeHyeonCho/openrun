@@ -96,7 +96,16 @@ export function QuantityPage() {
     if (availabilityQuery.isError) {
         return <Page header={header}><LoadError onRetry={() => availabilityQuery.refetch()} /></Page>;
     }
-    return <QuantityForm header={header} performance={performanceQuery.data} showtime={showtime} me={me} availability={availabilityQuery.data} />;
+    return (
+        <QuantityForm
+            key={`${me.buyerId}:${showtime.id}`}
+            header={header}
+            performance={performanceQuery.data}
+            showtime={showtime}
+            me={me}
+            availability={availabilityQuery.data}
+        />
+    );
 }
 
 function LoginRequired({ header }: { header: ReactNode }) {
