@@ -41,7 +41,7 @@ const titles: Record<number, string> = {
 
 function problem(status: number, code?: ProblemCode, detail?: string) {
     return HttpResponse.json(
-        { type: 'about:blank', title: titles[status] ?? 'Error', status, detail, code },
+        { type: 'about:blank', title: titles[status] ?? 'Error', status, detail, code, serverTime: serverTime(loadDb()) },
         { status, headers: { 'Content-Type': 'application/problem+json' } },
     );
 }

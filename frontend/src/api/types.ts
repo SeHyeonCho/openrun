@@ -26,6 +26,7 @@ export interface ProblemDetail {
     instance?: string;
     code?: ProblemCode;
     seatIds?: number[];
+    serverTime?: IsoDateTime;
 }
 
 export interface ShowtimeSummary {

@@ -97,7 +97,11 @@ export async function request<T>(path: string, init: RequestOptions = {}): Promi
         }
 
         if (!response.ok) {
-            throw new ApiError(await readProblem(response, aborted));
+            const problem = await readProblem(response, aborted);
+            if (typeof problem.serverTime === 'string') {
+                syncServerTime(problem.serverTime, sentAt, Date.now());
+            }
+            throw new ApiError(problem);
         }
         if (response.status === 204) {
             return undefined as T;

@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/setup';
+import { serverNow } from '../lib/clock';
 import { CSRF_HEADER, NoResponseError, request } from './client';
 
 describe('CSRF 토큰', () => {
@@ -23,6 +24,21 @@ describe('CSRF 토큰', () => {
 
         expect(sent.get).toBeNull();
         expect(sent.post).toBe('token/value');
+    });
+});
+
+describe('서버 시각', () => {
+    it('실패 응답의 serverTime으로도 기기 시계를 맞춘다', async () => {
+        const ahead = new Date(Date.now() + 60 * 60_000).toISOString();
+        server.use(
+            http.post('/api/probe', () =>
+                HttpResponse.json({ status: 409, code: 'SALES_CLOSED', serverTime: ahead }, { status: 409, headers: { 'Content-Type': 'application/problem+json' } }),
+            ),
+        );
+
+        await request('/probe', { method: 'POST' }).catch(() => undefined);
+
+        expect(serverNow() - Date.now()).toBeGreaterThan(59 * 60_000);
     });
 });
 
