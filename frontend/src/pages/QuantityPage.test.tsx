@@ -405,6 +405,32 @@ describe('수량 선택', () => {
         await waitFor(() => expect(sentKeys).toContain(key));
     });
 
+    it('화면을 떠난 뒤 받은 선점 응답은, 다시 연 화면이 확인 중인 보관 요청을 지우지 않는다', async () => {
+        let holdRequests = 0;
+        server.use(
+            http.post('/api/orders', async () => {
+                holdRequests += 1;
+                if (holdRequests === 1) {
+                    await delay(1_500);
+                    return undefined;
+                }
+                return HttpResponse.error();
+            }),
+        );
+        const first = renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await waitFor(() => expect(sentKeys).toHaveLength(1));
+        const key = sentKeys[0];
+        first.unmount();
+
+        renderRoute(PATH, { loggedIn: true });
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' }, { timeout: 6_000 })).toBeTruthy();
+        expect(holdRequests).toBe(4);
+        expect(storedHold()?.key).toBe(key);
+    }, 10_000);
+
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
         const view = renderRoute(PATH);
 

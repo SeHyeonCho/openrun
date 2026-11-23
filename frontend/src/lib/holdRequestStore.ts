@@ -52,15 +52,16 @@ export function hasOtherBuyerHoldRequest(buyerId: string, showtimeId: number) {
     return Object.entries(read()).some(([owner, byShowtime]) => owner !== buyerId && byShowtime[String(showtimeId)] !== undefined);
 }
 
-export function removeHoldRequest(buyerId: string, showtimeId: number) {
+export function removeHoldRequest(request: StoredHoldRequest) {
     const store = read();
-    const byShowtime = store[buyerId];
-    if (!byShowtime) {
+    const byShowtime = store[request.buyerId];
+    const showtimeId = String(request.body.showtimeId);
+    if (!byShowtime || byShowtime[showtimeId]?.key !== request.key) {
         return;
     }
-    delete byShowtime[String(showtimeId)];
+    delete byShowtime[showtimeId];
     if (Object.keys(byShowtime).length === 0) {
-        delete store[buyerId];
+        delete store[request.buyerId];
     }
     write(store);
 }

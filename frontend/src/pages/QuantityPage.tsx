@@ -208,7 +208,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         }
         if (isPastResendLimit(request, serverNow())) {
             pending.current = null;
-            removeHoldRequest(request.buyerId, request.body.showtimeId);
+            removeHoldRequest(request);
             setPhase({ kind: 'pastResendLimit' });
             return;
         }
@@ -216,20 +216,20 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         try {
             const order = await api.createOrder(request.body, request.key, request.buyerId);
             pending.current = null;
-            removeHoldRequest(request.buyerId, request.body.showtimeId);
             queryClient.setQueryData(queryKeys.order(order.token), order);
             void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtime.id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
             void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(performance.id)) });
             if (!unmounted.current) {
+                removeHoldRequest(request);
                 navigate(`/orders/${order.token}`);
             }
         } catch (error) {
-            if (isConcluded(error)) {
-                removeHoldRequest(request.buyerId, request.body.showtimeId);
-            }
             if (unmounted.current) {
                 return;
+            }
+            if (isConcluded(error)) {
+                removeHoldRequest(request);
             }
             if (isUnknownResult(error)) {
                 if (resendCount < RESEND_DELAYS_MS.length) {

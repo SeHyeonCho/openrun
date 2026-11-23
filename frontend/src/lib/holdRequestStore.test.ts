@@ -30,15 +30,26 @@ describe('보관한 선점 요청', () => {
     });
 
     it('지우면 그 구매자의 그 회차 요청만 사라진다', () => {
-        saveHoldRequest(request('b_me', 12));
+        const mine = request('b_me', 12);
+        saveHoldRequest(mine);
         saveHoldRequest(request('b_me', 14));
         saveHoldRequest(request('b_other', 12));
 
-        removeHoldRequest('b_me', 12);
+        removeHoldRequest(mine);
 
         expect(findHoldRequest('b_me', 12)).toBeNull();
         expect(findHoldRequest('b_me', 14)).not.toBeNull();
         expect(findHoldRequest('b_other', 12)).not.toBeNull();
+    });
+
+    it('식별자가 다른 요청은 지우지 않는다', () => {
+        const older = request('b_me', 12, 'older');
+        saveHoldRequest(older);
+        saveHoldRequest(request('b_me', 12, 'newer'));
+
+        removeHoldRequest(older);
+
+        expect(findHoldRequest('b_me', 12)?.key).toBe('newer');
     });
 
     it('같은 회차에 다른 구매자의 요청이 있는지 알려 준다', () => {
