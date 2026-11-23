@@ -44,29 +44,44 @@ public class Showtime extends BaseEntity {
     private Instant salesOpenAt;
 
     @Column(nullable = false)
+    private Instant salesCloseAt;
+
+    @Column(nullable = false)
     private int holdMinutes;
 
     @Column(nullable = false)
     private int maxSeatsPerUser;
 
     private Showtime(Performance performance, SeatType seatType, Instant startsAt, Instant endsAt,
-            Instant salesOpenAt, int holdMinutes, int maxSeatsPerUser) {
+            Instant salesOpenAt, Instant salesCloseAt, int holdMinutes, int maxSeatsPerUser) {
         this.performance = performance;
         this.seatType = seatType;
         this.startsAt = startsAt;
         this.endsAt = endsAt;
         this.salesOpenAt = salesOpenAt;
+        this.salesCloseAt = salesCloseAt;
         this.holdMinutes = holdMinutes;
         this.maxSeatsPerUser = maxSeatsPerUser;
     }
 
     public static Showtime create(Performance performance, SeatType seatType, Instant startsAt, Instant endsAt,
             Instant salesOpenAt, int holdMinutes, int maxSeatsPerUser) {
+        return create(performance, seatType, startsAt, endsAt, salesOpenAt, endsAt, holdMinutes, maxSeatsPerUser);
+    }
+
+    public static Showtime create(Performance performance, SeatType seatType, Instant startsAt, Instant endsAt,
+            Instant salesOpenAt, Instant salesCloseAt, int holdMinutes, int maxSeatsPerUser) {
         if (!startsAt.isBefore(endsAt)) {
             throw new IllegalArgumentException("공연 종료 시각은 시작 시각보다 뒤여야 한다");
         }
         if (!salesOpenAt.isBefore(startsAt)) {
             throw new IllegalArgumentException("판매 시작 시각은 공연 시작 시각보다 앞서야 한다");
+        }
+        if (!salesOpenAt.isBefore(salesCloseAt)) {
+            throw new IllegalArgumentException("판매 마감 시각은 판매 시작 시각보다 뒤여야 한다");
+        }
+        if (salesCloseAt.isAfter(endsAt)) {
+            throw new IllegalArgumentException("판매 마감 시각은 공연 종료 시각보다 늦을 수 없다");
         }
         if (holdMinutes <= 0) {
             throw new IllegalArgumentException("선점 유지 시간은 0보다 커야 한다");
@@ -74,7 +89,8 @@ public class Showtime extends BaseEntity {
         if (maxSeatsPerUser <= 0) {
             throw new IllegalArgumentException("1인 최대 좌석 수는 0보다 커야 한다");
         }
-        return new Showtime(performance, seatType, startsAt, endsAt, salesOpenAt, holdMinutes, maxSeatsPerUser);
+        return new Showtime(performance, seatType, startsAt, endsAt, salesOpenAt, salesCloseAt, holdMinutes,
+                maxSeatsPerUser);
     }
 
     public boolean isGeneralAdmission() {
@@ -83,6 +99,10 @@ public class Showtime extends BaseEntity {
 
     public boolean isSalesOpenAt(Instant now) {
         return !now.isBefore(salesOpenAt);
+    }
+
+    public boolean isSalesClosedAt(Instant now) {
+        return !now.isBefore(salesCloseAt);
     }
 
     public Instant holdDeadlineFrom(Instant now) {
