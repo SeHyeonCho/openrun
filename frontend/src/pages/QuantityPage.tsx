@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { ApiError, isApiError, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
+import { ApiError, isApiError, isForbidden, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
 import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, usePerformance } from '../api/queries';
 import type { AvailabilityResponse, MeResponse, PerformanceResponse, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
@@ -215,6 +215,18 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
                     return;
                 }
                 setPhase({ kind: 'unknown' });
+                return;
+            }
+            if (isForbidden(error)) {
+                if (resendCount >= RESEND_DELAYS_MS.length) {
+                    setPhase({ kind: 'unknown' });
+                    return;
+                }
+                setPhase({ kind: 'resending' });
+                await api.getMe().catch(() => undefined);
+                if (!unmounted.current) {
+                    void send(notOpenAttempt, resendCount + 1);
+                }
                 return;
             }
             if (isApiError(error, 'BUYER_CHANGED')) {

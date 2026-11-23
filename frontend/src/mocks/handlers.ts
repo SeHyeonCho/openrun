@@ -191,6 +191,10 @@ export const handlers = [
         if (csrfRejected(request)) {
             return problem(403);
         }
+        if (db.scenario === 'hold-csrf-always' || (db.scenario === 'hold-csrf-once' && firstTime(db, 'hold'))) {
+            saveDb(db);
+            return problem(403);
+        }
         if (!key) {
             return problem(400, undefined, '선점 요청에는 Idempotency-Key가 필요하다');
         }

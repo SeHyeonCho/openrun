@@ -314,6 +314,35 @@ describe('수량 선택', () => {
         expect(storedHold()?.key).toBe(sentKeys[0]);
     });
 
+    it('선점이 403이면 GET /api/me로 CSRF 쿠키를 다시 받은 뒤 같은 식별자로 다시 보낸다', async () => {
+        const paths: string[] = [];
+        const record = ({ request }: { request: Request }) => paths.push(`${request.method} ${new URL(request.url).pathname}`);
+        server.events.on('request:start', record);
+        const { router } = renderRoute(PATH, { scenario: 'hold-csrf-once', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        server.events.removeListener('request:start', record);
+        const firstHold = paths.indexOf('POST /api/orders');
+        expect(paths.slice(firstHold + 1)).toContain('GET /api/me');
+        expect(paths.indexOf('GET /api/me', firstHold)).toBeLessThan(paths.lastIndexOf('POST /api/orders'));
+        expect(sentKeys).toHaveLength(2);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(myHeldOrders()).toHaveLength(1);
+    });
+
+    it('403이 계속되면 다시 보내기 횟수만큼만 같은 식별자로 보내고, 결과를 확인하지 못했다고 안내하며 요청을 남겨 둔다', async () => {
+        renderRoute(PATH, { scenario: 'hold-csrf-always', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' })).toBeTruthy();
+        expect(sentKeys).toHaveLength(3);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(storedHold()?.key).toBe(sentKeys[0]);
+    });
+
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
         const view = renderRoute(PATH);
 

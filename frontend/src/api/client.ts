@@ -46,6 +46,8 @@ export const isApiError = (error: unknown, code?: ProblemCode): error is ApiErro
 
 export const isUnauthorized = (error: unknown) => error instanceof ApiError && error.status === 401;
 
+export const isForbidden = (error: unknown) => error instanceof ApiError && error.status === 403;
+
 export const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
 
 export const isUnknownResult = (error: unknown) => error instanceof NoResponseError || (error instanceof ApiError && error.status >= 500);

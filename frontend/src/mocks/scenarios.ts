@@ -9,6 +9,8 @@ export const scenarios = [
     { id: 'hold-lost-none', label: '선점 응답 한 번 유실, 주문 없음' },
     { id: 'hold-lost-always', label: '선점 응답이 계속 유실됨' },
     { id: 'hold-unauthorized-once', label: '선점할 때 로그인이 끝나 있음' },
+    { id: 'hold-csrf-once', label: '선점할 때 CSRF 토큰 거부 한 번' },
+    { id: 'hold-csrf-always', label: '선점할 때 CSRF 토큰이 계속 거부됨' },
     { id: 'buyer-changed', label: '다른 탭에서 다른 계정으로 로그인함' },
     { id: 'short-hold', label: '선점 기한 30초' },
     { id: 'confirm-expired', label: '확정할 때 서버가 기한 지남으로 거부' },
