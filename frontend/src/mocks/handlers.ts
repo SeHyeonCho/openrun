@@ -89,6 +89,12 @@ export function orderView(db: MockDb, order: MockOrder): OrderResponse {
 
 const showtimeOf = (db: MockDb, order: MockOrder) => db.showtimes.find((s) => s.id === order.showtimeId)!;
 
+function confirm(db: MockDb, order: MockOrder) {
+    const showtime = showtimeOf(db, order);
+    order.status = 'CONFIRMED';
+    order.entryNumbers = showtime.seatKind === 'GENERAL' ? issueEntryNumbers(showtime, order.quantity) : [];
+}
+
 function findOwnOrder(db: MockDb, token: string) {
     return db.orders.find((o) => o.token === token && o.ownerId === MOCK_USER.id);
 }
@@ -336,9 +342,7 @@ export const handlers = [
             return problem(409, 'ORDER_EXPIRED');
         }
         if (order.status === 'HELD') {
-            const showtime = showtimeOf(db, order);
-            order.status = 'CONFIRMED';
-            order.entryNumbers = showtime.seatKind === 'GENERAL' ? issueEntryNumbers(showtime, order.quantity) : [];
+            confirm(db, order);
         }
         saveDb(db);
         if (db.scenario === 'confirm-lost-once' && firstTime(db, 'confirm')) {
@@ -363,7 +367,7 @@ export const handlers = [
         }
         const now = mockNow(db);
         if (db.scenario === 'cancel-confirmed' && order.status === 'HELD') {
-            order.status = 'CONFIRMED';
+            confirm(db, order);
         }
         if (order.status === 'CONFIRMED') {
             saveDb(db);

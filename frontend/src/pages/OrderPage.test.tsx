@@ -227,7 +227,7 @@ describe('주문 화면', () => {
         expect(queryButton('예매 확정')).toBeTruthy();
     });
 
-    it('이미 확정한 주문을 취소하면 취소할 수 없다고 알리고 확정 화면을 보여 준다', async () => {
+    it('이미 확정한 주문을 취소하면 취소할 수 없다고 알리고 확정 때 받은 입장번호와 함께 확정 화면을 보여 준다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'cancel-confirmed', loggedIn: true });
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
@@ -235,6 +235,7 @@ describe('주문 화면', () => {
 
         expect(await screen.findByText('이미 완료한 예매라 여기서 취소할 수 없어요.')).toBeTruthy();
         expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' })).toBeTruthy();
+        expect(within(screen.getByRole('article', { name: '모바일 티켓' })).getByText('37 · 38')).toBeTruthy();
     });
 
     it('확정 응답을 받지 못하면 버튼을 막고 같은 주문으로 자동으로 다시 보내 확정 결과를 받는다', async () => {
