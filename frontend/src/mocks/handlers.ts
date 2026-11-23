@@ -181,6 +181,10 @@ export const handlers = [
         const key = request.headers.get(IDEMPOTENCY_HEADER);
         await receive();
         const db = loadDb();
+        if (db.scenario === 'hold-unauthorized-once' && firstTime(db, 'hold')) {
+            saveDb(db);
+            setMockLoggedIn(false);
+        }
         if (!isMockLoggedIn()) {
             return problem(401);
         }
