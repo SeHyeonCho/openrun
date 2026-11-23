@@ -1,8 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { isMockLoggedIn } from '../mocks/scenarios';
-import { disabled, renderRoute, salesOpenIn } from '../test/render';
+import { redirectTo } from '../lib/navigation';
+import { disabled, finishKakaoLogin, renderRoute, salesOpenIn } from '../test/render';
 import { server } from '../test/setup';
 
 const opensIn = (ms: number) => salesOpenIn(21, ms);
@@ -72,15 +72,18 @@ describe('공연 페이지', () => {
         expect(screen.queryByText(/분 안에 예매를 확정하지 않으면/)).toBeNull();
     });
 
-    it('로그인하지 않고 예매하기를 누르면 카카오 로그인을 거쳐 수량 선택으로 간다', async () => {
-        const { router } = renderRoute('/performances/1');
+    it('로그인하지 않고 예매하기를 누르면 카카오 로그인으로 이동하고, 로그인 뒤 수량 선택으로 돌아온다', async () => {
+        const view = renderRoute('/performances/1');
 
         expect(await screen.findByRole('heading', { name: '판매 전에 로그인해 두세요' })).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: /12\.05 SAT 19:00–21:30/ }));
         fireEvent.click(screen.getByRole('button', { name: '예매하기' }));
+        await waitFor(() => expect(redirectTo).toHaveBeenCalledWith('/oauth2/authorization/kakao'));
+
+        const { router } = finishKakaoLogin(view);
 
         await waitFor(() => expect(router.state.location.pathname).toBe('/performances/1/showtimes/12/quantity'));
-        expect(isMockLoggedIn()).toBe(true);
+        expect(await screen.findByRole('button', { name: '1매 선택 완료' })).toBeTruthy();
     });
 
     it('로그인 상태를 불러오지 못하면 로그인 카드 대신 다시 시도를 보여 준다', async () => {

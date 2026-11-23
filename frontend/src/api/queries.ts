@@ -24,7 +24,7 @@ export const queryKeys = {
 export const api = {
     getMe: () => request<MeResponse>('/me'),
     mockLogin: () => request<MeResponse>('/auth/mock-login', { method: 'POST' }),
-    logout: () => request<void>('/auth/logout', { method: 'POST' }),
+    logout: () => request<void>('/logout', { method: 'POST' }),
     getPerformance: (performanceId: string) =>
         request<PerformanceResponse>(`/performances/${encodeURIComponent(performanceId)}`),
     getAvailability: (showtimeId: number) => request<AvailabilityResponse>(`/showtimes/${showtimeId}/availability`),

@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { holdDemoEndsIn, renderRoute } from '../test/render';
+import { isMockLoggedIn } from '../mocks/scenarios';
+import { finishKakaoLogin, holdDemoEndsIn, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
 describe('내 주문', () => {
@@ -45,12 +46,23 @@ describe('내 주문', () => {
     });
 
     it('로그인하지 않았으면 로그인을 먼저 하게 하고, 로그인하면 목록을 보여 준다', async () => {
-        renderRoute('/me/orders');
+        const view = renderRoute('/me/orders');
 
         expect(await screen.findByRole('heading', { name: '로그인하면 예매 내역을 볼 수 있어요' })).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: '카카오 로그인' }));
+        finishKakaoLogin(view);
 
         expect(await screen.findByText('밤산책 님이 카카오 계정으로 예매한 내역이에요.')).toBeTruthy();
+    });
+
+    it('로그아웃하면 세션을 끝내고 로그인 안내를 보여 준다', async () => {
+        renderRoute('/me/orders', { loggedIn: true });
+
+        fireEvent.click(await screen.findByRole('button', { name: '로그아웃' }));
+
+        expect(await screen.findByRole('heading', { name: '로그인하면 예매 내역을 볼 수 있어요' })).toBeTruthy();
+        expect(isMockLoggedIn()).toBe(false);
+        expect(screen.queryByRole('link', { name: /NIGHT SIGNAL/ })).toBeNull();
     });
 
     it('로그인 상태를 불러오지 못하면 다시 로그인하라고 하지 않고 다시 시도를 보여 준다', async () => {

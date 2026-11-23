@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadDb, saveDb } from '../mocks/db';
 import { orderView } from '../mocks/handlers';
 import { isMockLoggedIn, setMockLoggedIn } from '../mocks/scenarios';
-import { disabled, holdDemoEndsIn, renderRoute } from '../test/render';
+import { disabled, finishKakaoLogin, holdDemoEndsIn, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
 const queryButton = (name: string) => screen.queryByRole('button', { name });
@@ -199,11 +199,13 @@ describe('주문 화면', () => {
                 { once: true },
             ),
         );
-        renderRoute('/orders/held-demo', { loggedIn: true });
+        const view = renderRoute('/orders/held-demo', { loggedIn: true });
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
-        await waitFor(() => expect(isMockLoggedIn()).toBe(true));
-        expect(confirmRequests).toBe(1);
+        await waitFor(() => expect(isMockLoggedIn()).toBe(false));
+        await waitFor(() => expect(confirmRequests).toBe(1));
+        const { router } = finishKakaoLogin(view);
+        await waitFor(() => expect(router.state.location.pathname).toBe('/orders/held-demo'));
 
         const again = await screen.findByRole('button', { name: '예매 확정' });
         await waitFor(() => expect(disabled(again)).toBe(false));
@@ -297,10 +299,11 @@ describe('주문 화면', () => {
     });
 
     it('로그인하지 않고 내 주문 링크를 열면 내용만 보여 주고, 로그인하면 확정할 수 있다', async () => {
-        renderRoute('/orders/held-demo');
+        const view = renderRoute('/orders/held-demo');
 
         expect(await screen.findByRole('heading', { name: '공유받은 예매예요' })).toBeTruthy();
         fireEvent.click(await screen.findByRole('button', { name: '카카오 로그인' }));
+        finishKakaoLogin(view);
 
         expect(await screen.findByRole('button', { name: '예매 확정' })).toBeTruthy();
     });

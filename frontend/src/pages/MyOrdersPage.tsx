@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useMe, useMyOrders } from '../api/queries';
 import type { MyOrderSummary } from '../api/types';
-import { useLogin } from '../auth/useLogin';
+import { useLogin, useLogout } from '../auth/useLogin';
 import { Badge } from '../components/Badge';
 import { Header } from '../components/Header';
 import { KakaoLoginButton } from '../components/KakaoLoginButton';
@@ -44,10 +44,33 @@ export function MyOrdersPage() {
     const { orders } = ordersQuery.data;
     return (
         <Page header={header}>
-            <p className="t-caption">{text.owner(me.nickname)}</p>
+            <Account nickname={me.nickname} />
             {orders.length === 0 ? <Notice title={text.empty} body={text.emptyBody} /> : <OrderList orders={orders} />}
             <p className="t-caption">{text.footer}</p>
         </Page>
+    );
+}
+
+function Account({ nickname }: { nickname: string }) {
+    const logout = useLogout();
+    const toast = useToast();
+    const [busy, setBusy] = useState(false);
+    const logoutHere = async () => {
+        setBusy(true);
+        try {
+            await logout();
+        } catch {
+            toast(copy.common.logoutFailed);
+            setBusy(false);
+        }
+    };
+    return (
+        <div className={styles.account}>
+            <p className="t-caption">{copy.myOrdersPage.owner(nickname)}</p>
+            <button type="button" className={styles.logout} onClick={() => void logoutHere()} disabled={busy}>
+                {copy.common.logout}
+            </button>
+        </div>
     );
 }
 

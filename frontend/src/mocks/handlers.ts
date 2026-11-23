@@ -92,7 +92,7 @@ export const handlers = [
         return HttpResponse.json<MeResponse>(meView(loadDb()));
     }),
 
-    http.post('/api/auth/logout', async () => {
+    http.post('/api/logout', async () => {
         await slowDown();
         setMockLoggedIn(false);
         return new HttpResponse(null, { status: 204 });

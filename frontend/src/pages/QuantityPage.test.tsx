@@ -3,7 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { IDEMPOTENCY_HEADER } from '../api/queries';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
-import { disabled, renderRoute } from '../test/render';
+import { disabled, finishKakaoLogin, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
 const PATH = '/performances/1/showtimes/12/quantity';
@@ -218,11 +218,13 @@ describe('수량 선택', () => {
     }, 10_000);
 
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
-        renderRoute(PATH);
+        const view = renderRoute(PATH);
 
         expect(await screen.findByRole('heading', { name: '로그인하면 매수를 고를 수 있어요' })).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: '카카오 로그인' }));
+        const { router } = finishKakaoLogin(view);
 
         expect(await screen.findByRole('button', { name: '1매 선택 완료' })).toBeTruthy();
+        expect(router.state.location.pathname).toBe(PATH);
     });
 });

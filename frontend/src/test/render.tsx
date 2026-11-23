@@ -1,9 +1,12 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '../app/queryClient';
 import { render } from '@testing-library/react';
+import { expect } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { ToastProvider } from '../components/Toast';
 import { routes } from '../app/routes';
+import { KAKAO_LOGIN_PATH } from '../auth/useLogin';
+import { redirectTo } from '../lib/navigation';
 import { loadDb, saveDb, type MockDb } from '../mocks/db';
 import { setMockLoggedIn, storeScenario, type ScenarioId } from '../mocks/scenarios';
 
@@ -33,6 +36,12 @@ export function renderRoute(path: string, { scenario = 'default', loggedIn = fal
         </QueryClientProvider>,
     );
     return { ...view, router };
+}
+
+export function finishKakaoLogin(view: { unmount: () => void }, { scenario = 'default' }: Pick<Options, 'scenario'> = {}) {
+    expect(redirectTo).toHaveBeenLastCalledWith(KAKAO_LOGIN_PATH);
+    view.unmount();
+    return renderRoute('/', { scenario, loggedIn: true });
 }
 
 export const disabled = (element: HTMLElement) => (element as HTMLButtonElement).disabled;
