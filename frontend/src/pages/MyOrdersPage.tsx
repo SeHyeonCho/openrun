@@ -57,7 +57,7 @@ function OrderList({ orders }: { orders: MyOrderSummary[] }) {
     const noteOf = (order: MyOrderSummary, view: OrderView) => {
         switch (view) {
             case 'held':
-                return note.held(order.quantity, order.entryNumbers, formatCountdown(msUntil(order.heldUntil, now)));
+                return note.held(order.quantity, formatCountdown(msUntil(order.heldUntil, now)));
             case 'confirmed':
                 return note.confirmed(order.quantity, order.entryNumbers);
             case 'expired':

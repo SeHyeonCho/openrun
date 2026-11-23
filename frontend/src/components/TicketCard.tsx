@@ -11,9 +11,10 @@ type TicketCardProps = {
     qr: 'clear' | 'dim' | 'none';
     qrNote?: string;
     qrSize?: number;
+    entryPending?: boolean;
 };
 
-export const TicketCard = forwardRef<HTMLElement, TicketCardProps>(function TicketCard({ order, qr, qrNote, qrSize = 176 }, ref) {
+export const TicketCard = forwardRef<HTMLElement, TicketCardProps>(function TicketCard({ order, qr, qrNote, qrSize = 176, entryPending = false }, ref) {
     const text = copy.ticket;
     return (
         <article ref={ref} aria-label={text.label} className={`${styles.card} ${qr === 'none' ? styles.void : ''}`}>
@@ -24,10 +25,16 @@ export const TicketCard = forwardRef<HTMLElement, TicketCardProps>(function Tick
             </div>
             <div className={styles.divider} aria-hidden="true" />
             <div className={styles.row}>
-                <div className={styles.entry}>
-                    <span className="t-caption">{text.entry}</span>
-                    <span className={`${styles.numbers} t-numeral`}>{order.entryNumbers.join(' · ')}</span>
-                </div>
+                {(order.entryNumbers.length > 0 || entryPending) && (
+                    <div className={styles.entry}>
+                        <span className="t-caption">{text.entry}</span>
+                        {order.entryNumbers.length > 0 ? (
+                            <span className={`${styles.numbers} t-numeral`}>{order.entryNumbers.join(' · ')}</span>
+                        ) : (
+                            <span className="t-label">{text.entryPending}</span>
+                        )}
+                    </div>
+                )}
                 <div className={styles.buyer}>
                     <span className="t-label">{order.buyerName}</span>
                     <span className="t-caption">{text.quantity(order.quantity)}</span>

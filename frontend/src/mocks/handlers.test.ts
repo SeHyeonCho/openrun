@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ApiError } from '../api/client';
 import { api } from '../api/queries';
-import { isLive, loadDb, MOCK_USER, mockNow, remainingOf, saveDb, shrinkRemainingTo } from './db';
+import { loadDb, MOCK_USER, mockNow, remainingOf, saveDb, shrinkRemainingTo } from './db';
 import { setMockLoggedIn, storeScenario, type ScenarioId } from './scenarios';
 
 const request = { showtimeId: 12, quantity: 1, buyerName: '밤산책' };
@@ -21,16 +21,31 @@ const myOrderCount = () => loadDb().orders.filter((o) => o.ownerId === MOCK_USER
 describe('목 API', () => {
     beforeEach(() => prepare());
 
-    it('선점 요청이 겹쳐도 서로의 주문을 덮어쓰지 않고 다른 입장번호를 배정한다', async () => {
+    it('선점 요청이 겹쳐도 서로의 주문을 덮어쓰지 않고, 선점한 주문에는 입장번호를 주지 않는다', async () => {
         const [first, second] = await Promise.all([api.createOrder(request, crypto.randomUUID()), api.createOrder(request, crypto.randomUUID())]);
 
-        expect(first.entryNumbers).not.toEqual(second.entryNumbers);
+        expect(first.token).not.toBe(second.token);
+        expect(first.entryNumbers).toEqual([]);
+        expect(second.entryNumbers).toEqual([]);
         const tokens = loadDb().orders.map((o) => o.token);
         expect(tokens).toContain(first.token);
         expect(tokens).toContain(second.token);
     });
 
-    it('잔여석보다 많은 선점 요청이 동시에 와도 잔여석만큼만 성공하고 입장번호가 겹치지 않는다', async () => {
+    it('입장번호는 확정한 순서대로 회차의 다음 번호를 주고, 한 주문의 여러 장은 이어진 번호를 받으며, 다시 확정해도 바뀌지 않는다', async () => {
+        const early = await api.createOrder({ ...request, quantity: 2 }, crypto.randomUUID());
+        const late = await api.createOrder(request, crypto.randomUUID());
+
+        const lateConfirmed = await api.confirmOrder(late.token);
+        const earlyConfirmed = await api.confirmOrder(early.token);
+        const again = await api.confirmOrder(early.token);
+
+        expect(lateConfirmed.entryNumbers).toEqual([37]);
+        expect(earlyConfirmed.entryNumbers).toEqual([38, 39]);
+        expect(again.entryNumbers).toEqual([38, 39]);
+    });
+
+    it('잔여석보다 많은 선점 요청이 동시에 와도 잔여석만큼만 성공한다', async () => {
         const db = loadDb();
         const showtime = db.showtimes.find((s) => s.id === 12)!;
         shrinkRemainingTo(db, showtime, 3, mockNow(db));
@@ -43,8 +58,6 @@ describe('목 API', () => {
         expect(succeeded).toHaveLength(3);
         expect(rejected.map((r) => (r.reason as ApiError).code)).toEqual(Array(5).fill('SEAT_NOT_AVAILABLE'));
         const after = loadDb();
-        const held = after.orders.filter((o) => o.showtimeId === 12 && isLive(o, mockNow(after))).flatMap((o) => o.entryNumbers);
-        expect(new Set(held).size).toBe(held.length);
         expect(remainingOf(after, after.showtimes.find((s) => s.id === 12)!, mockNow(after))).toBe(0);
     });
 

@@ -235,6 +235,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
                     order={order}
                     qr={shownView === 'confirmed' ? 'clear' : shownView === 'held' ? 'dim' : 'none'}
                     qrNote={shownView === 'held' ? text.viewer.qrNote : undefined}
+                    entryPending={shownView === 'held'}
                     qrSize={shownView === 'confirmed' ? 200 : 136}
                 />
             </Page>
@@ -270,7 +271,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
                     </span>
                     <span className="t-caption">{text.held.deadline(formatDateTime(order.heldUntil))}</span>
                 </section>
-                <TicketCard order={order} qr="dim" qrNote={text.held.qrNote} qrSize={160} />
+                <TicketCard order={order} qr="dim" qrNote={text.held.qrNote} qrSize={160} entryPending />
                 {sheetOpen && (
                     <BottomSheet
                         title={text.cancelSheet.title}
@@ -286,7 +287,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
                             </>
                         }
                     >
-                        <p className="t-body">{text.cancelSheet.body(order.entryNumbers)}</p>
+                        <p className="t-body">{text.cancelSheet.body(order.quantity)}</p>
                         <p className="t-caption">{text.cancelSheet.caption(order.quantity)}</p>
                     </BottomSheet>
                 )}

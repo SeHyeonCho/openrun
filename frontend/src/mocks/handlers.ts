@@ -11,8 +11,8 @@ import type {
     PerformanceResponse,
 } from '../api/types';
 import {
-    assignNumbers,
     holdMsOf,
+    issueEntryNumbers,
     isLive,
     loadDb,
     MOCK_USER,
@@ -69,7 +69,7 @@ export function orderView(db: MockDb, order: MockOrder): OrderResponse {
         status: order.status,
         performance: { id: performance.id, title: performance.title, venue: performance.venue },
         showtime: { id: showtime.id, startsAt: showtime.startsAt, endsAt: showtime.endsAt },
-        quantity: order.entryNumbers.length,
+        quantity: order.quantity,
         entryNumbers: order.entryNumbers,
         buyerName: order.buyerName,
         heldUntil: order.heldUntil,
@@ -78,6 +78,8 @@ export function orderView(db: MockDb, order: MockOrder): OrderResponse {
         serverTime: serverTime(db),
     };
 }
+
+const showtimeOf = (db: MockDb, order: MockOrder) => db.showtimes.find((s) => s.id === order.showtimeId)!;
 
 function findOwnOrder(db: MockDb, token: string) {
     return db.orders.find((o) => o.token === token && o.ownerId === MOCK_USER.id);
@@ -221,7 +223,8 @@ export const handlers = [
                     showtimeId: st.id,
                     ownerId: MOCK_USER.id,
                     buyerName,
-                    entryNumbers: assignNumbers(db, st, missing, now),
+                    quantity: missing,
+                    entryNumbers: issueEntryNumbers(st, missing),
                     status: 'CONFIRMED',
                     heldUntil: new Date(now).toISOString(),
                     createdAt: new Date(now - 30_000).toISOString(),
@@ -253,7 +256,8 @@ export const handlers = [
             showtimeId: st.id,
             ownerId: MOCK_USER.id,
             buyerName,
-            entryNumbers: assignNumbers(db, st, quantity, now),
+            quantity,
+            entryNumbers: [],
             status: 'HELD',
             heldUntil: new Date(now + holdMsOf(db, st)).toISOString(),
             createdAt: new Date(now).toISOString(),
@@ -303,7 +307,10 @@ export const handlers = [
             saveDb(db);
             return problem(409, 'ORDER_EXPIRED');
         }
-        order.status = 'CONFIRMED';
+        if (order.status === 'HELD') {
+            order.status = 'CONFIRMED';
+            order.entryNumbers = issueEntryNumbers(showtimeOf(db, order), order.quantity);
+        }
         saveDb(db);
         if (db.scenario === 'confirm-lost-once' && firstTime(db, 'confirm')) {
             saveDb(db);

@@ -17,17 +17,19 @@ describe('내 주문', () => {
         ]);
         const [held, confirmed, expired, cancelled] = items;
         expect(within(held!).getByText('확정 대기')).toBeTruthy();
-        expect(within(held!).getByText(/2매 · 입장번호 37 · 38 · 09:\d\d 남음/)).toBeTruthy();
+        expect(within(held!).getByText(/2매 · 확정하면 입장번호가 나와요 · 09:\d\d 남음/)).toBeTruthy();
         expect(within(confirmed!).getByText('예매 완료')).toBeTruthy();
+        expect(within(confirmed!).getByText('1매 · 입장번호 12')).toBeTruthy();
+        expect(within(expired!).queryByText(/입장번호/)).toBeNull();
         expect(within(expired!).getByText('시간 만료')).toBeTruthy();
         expect(within(cancelled!).getByText('취소')).toBeTruthy();
-        expect(screen.queryByText(/39 · 40/)).toBeNull();
+        expect(items).toHaveLength(4);
     });
 
     it('보고 있는 사이 확정 대기 예매의 기한이 지나면 시간 만료로 바꾼다', async () => {
         renderRoute('/me/orders', { loggedIn: true, prepare: holdDemoEndsIn(1_200) });
 
-        const held = await screen.findByRole('link', { name: /37 · 38/ });
+        const held = await screen.findByRole('link', { name: /확정하면 입장번호가 나와요/ });
         expect(within(held).getByText('확정 대기')).toBeTruthy();
 
         await waitFor(() => expect(within(held).getByText('시간 만료')).toBeTruthy(), { timeout: 3_000 });
@@ -36,7 +38,7 @@ describe('내 주문', () => {
     it('서버 시계가 기기보다 빨라도 서버 시각 기준으로 남은 시간을 세고 기한에 만료로 바꾼다', async () => {
         renderRoute('/me/orders', { scenario: 'clock-skew', loggedIn: true, prepare: holdDemoEndsIn(1_200) });
 
-        const held = await screen.findByRole('link', { name: /37 · 38/ });
+        const held = await screen.findByRole('link', { name: /확정하면 입장번호가 나와요/ });
         expect(within(held).getByText(/00:0[012] 남음/)).toBeTruthy();
 
         await waitFor(() => expect(within(held).getByText('시간 만료')).toBeTruthy(), { timeout: 3_000 });

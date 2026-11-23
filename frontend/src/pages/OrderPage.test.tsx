@@ -22,11 +22,13 @@ describe('주문 화면', () => {
         confirmRequests = 0;
     });
 
-    it('선점 중이면 입장번호, 확정까지 남은 시간, 확정·선점 취소·공유하기를 보여 준다', async () => {
+    it('선점 중이면 입장번호 대신 확정하면 번호가 나온다는 안내와 확정까지 남은 시간, 확정·선점 취소·공유하기를 보여 준다', async () => {
         renderRoute('/orders/held-demo', { loggedIn: true });
 
         const ticket = await screen.findByRole('article', { name: '모바일 티켓' });
-        expect(within(ticket).getByText('37 · 38')).toBeTruthy();
+        expect(within(ticket).getByText('확정하면 입장번호가 나와요')).toBeTruthy();
+        expect(within(ticket).getByText('2매')).toBeTruthy();
+        expect(within(ticket).queryByText(/\d+ · \d+/)).toBeNull();
         expect(within(ticket).getByRole('img', { name: '확정 전이라 흐린 입장용 QR' })).toBeTruthy();
         expect(screen.getByRole('timer').textContent).toMatch(/^09:(4[01]|39)$/);
         expect(queryButton('예매 확정')).toBeTruthy();
@@ -34,12 +36,15 @@ describe('주문 화면', () => {
         expect(queryButton('공유하기')).toBeTruthy();
     });
 
-    it('확정하면 선명한 QR과 이미지로 저장·캘린더에 추가·공유하기를 보여 준다', async () => {
+    it('확정하면 확정한 순서대로 받은 입장번호와 선명한 QR, 이미지로 저장·캘린더에 추가·공유하기를 보여 준다', async () => {
         renderRoute('/orders/held-demo', { loggedIn: true });
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
 
         expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' })).toBeTruthy();
+        const ticket = screen.getByRole('article', { name: '모바일 티켓' });
+        expect(within(ticket).getByText('37 · 38')).toBeTruthy();
+        expect(within(ticket).queryByText('확정하면 입장번호가 나와요')).toBeNull();
         expect(screen.getByRole('img', { name: '입장용 QR' })).toBeTruthy();
         expect(queryButton('이미지로 저장')).toBeTruthy();
         expect(queryButton('캘린더에 추가')).toBeTruthy();
@@ -52,11 +57,14 @@ describe('주문 화면', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
         const sheet = screen.getByRole('dialog', { name: '예매를 취소할까요?' });
-        expect(within(sheet).getByText(/입장번호 37 · 38이 바로 다른 사람에게 풀려요/)).toBeTruthy();
+        expect(within(sheet).getByText('고른 2매가 바로 다른 사람에게 풀려요.')).toBeTruthy();
         fireEvent.click(within(sheet).getByRole('button', { name: '예매 취소' }));
 
         expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
         expect(screen.queryByText(/풀렸어요/)).toBeNull();
+        const ticket = screen.getByRole('article', { name: '모바일 티켓' });
+        expect(within(ticket).queryByText('입장번호')).toBeNull();
+        expect(within(ticket).queryByText('확정하면 입장번호가 나와요')).toBeNull();
         expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/performances/1/showtimes/12/quantity');
     });
 
@@ -281,7 +289,8 @@ describe('주문 화면', () => {
         renderRoute('/orders/viewer-demo', { loggedIn: true });
 
         expect(await screen.findByRole('heading', { name: '공유받은 예매예요' })).toBeTruthy();
-        expect(screen.getByText('39 · 40')).toBeTruthy();
+        expect(screen.getByText('확정하면 입장번호가 나와요')).toBeTruthy();
+        expect(screen.getByText('2매')).toBeTruthy();
         expect(queryButton('예매 확정')).toBeNull();
         expect(queryButton('예매 취소')).toBeNull();
         expect(screen.getByRole('link', { name: '이 공연 보러 가기' })).toBeTruthy();
