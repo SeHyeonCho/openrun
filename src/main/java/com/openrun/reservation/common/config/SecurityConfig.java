@@ -3,6 +3,7 @@ package com.openrun.reservation.common.config;
 import com.openrun.reservation.buyer.application.KakaoOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,8 +21,8 @@ public class SecurityConfig {
     private static final String AFTER_LOGIN_PATH = "/";
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, KakaoOAuth2UserService kakaoOAuth2UserService)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, KakaoOAuth2UserService kakaoOAuth2UserService,
+            Clock clock) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, "/api/showtimes/*/availability").authenticated()
@@ -41,9 +42,9 @@ public class SecurityConfig {
                         .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, e) ->
-                                writeProblem(response, HttpStatus.UNAUTHORIZED))
+                                writeProblem(response, HttpStatus.UNAUTHORIZED, clock))
                         .accessDeniedHandler((request, response, e) ->
-                                writeProblem(response, HttpStatus.FORBIDDEN)));
+                                writeProblem(response, HttpStatus.FORBIDDEN, clock)));
         return http.build();
     }
 
@@ -53,10 +54,11 @@ public class SecurityConfig {
         return repository;
     }
 
-    private void writeProblem(HttpServletResponse response, HttpStatus status) throws IOException {
+    private void writeProblem(HttpServletResponse response, HttpStatus status, Clock clock) throws IOException {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.getWriter().write("""
-                {"type":"about:blank","title":"%s","status":%d}""".formatted(status.getReasonPhrase(), status.value()));
+                {"type":"about:blank","title":"%s","status":%d,"serverTime":"%s"}"""
+                .formatted(status.getReasonPhrase(), status.value(), clock.instant()));
     }
 }
