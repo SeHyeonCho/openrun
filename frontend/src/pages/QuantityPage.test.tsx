@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
+import { findHoldRequest } from '../lib/holdRequestStore';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
 import { disabled, finishKakaoLogin, renderRoute } from '../test/render';
 import { server } from '../test/setup';
@@ -18,6 +19,8 @@ server.events.on('request:start', ({ request }) => {
 });
 
 const myHeldOrders = () => loadDb().orders.filter((o) => o.ownerId === MOCK_USER.id && o.showtimeId === 12 && o.status === 'HELD');
+
+const storedHold = () => findHoldRequest(MOCK_USER.buyerId, 12);
 
 const withoutOwnHold = (db: MockDb) => {
     db.orders.find((o) => o.token === 'held-demo')!.status = 'CANCELLED';
@@ -93,6 +96,7 @@ describe('수량 선택', () => {
         hold(2);
 
         await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        expect(storedHold()).toBeNull();
     });
 
     it('선점 요청에 로그인한 구매자의 buyerId를 Expected-Buyer-Id 헤더로 담는다', async () => {
@@ -115,6 +119,7 @@ describe('수량 선택', () => {
         await new Promise((resolve) => setTimeout(resolve, 1_500));
         expect(sentKeys).toHaveLength(1);
         expect(myHeldOrders()).toHaveLength(0);
+        expect(storedHold()?.key).toBe(sentKeys[0]);
     });
 
     it('고르는 사이 남은 수가 줄면 새 남은 수를 알리고 수량을 줄인다', async () => {
@@ -126,6 +131,7 @@ describe('수량 선택', () => {
         expect(await screen.findByText('고르는 사이 잔여석이 줄었어요. 지금 잔여석은 2석이에요.')).toBeTruthy();
         expect(screen.getByText('잔여석에 맞춰 3매에서 2매로 줄였어요.')).toBeTruthy();
         expect(screen.getByRole('button', { name: '2매 선택 완료' })).toBeTruthy();
+        expect(storedHold()).toBeNull();
     });
 
     it('고르는 사이 매진되면 매진 안내와 다른 회차 보기를 보여 준다', async () => {
@@ -240,6 +246,8 @@ describe('수량 선택', () => {
         expect(sentKeys).toHaveLength(3);
         expect(new Set(sentKeys).size).toBe(1);
         expect(myHeldOrders()).toHaveLength(1);
+        expect(storedHold()?.key).toBe(sentKeys[0]);
+        expect(storedHold()?.body).toEqual({ showtimeId: 12, quantity: 1, buyerName: '밤산책' });
     }, 10_000);
 
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {

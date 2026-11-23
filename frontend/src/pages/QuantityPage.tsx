@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { isApiError, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
+import { ApiError, isApiError, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
 import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, usePerformance } from '../api/queries';
-import type { AvailabilityResponse, CreateOrderRequest, MeResponse, PerformanceResponse, ShowtimeSummary } from '../api/types';
+import type { AvailabilityResponse, MeResponse, PerformanceResponse, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
 import { BottomBar } from '../components/BottomBar';
 import { Button, ButtonLink } from '../components/Button';
@@ -16,14 +16,27 @@ import { ShowSummary } from '../components/ShowSummary';
 import { Stepper } from '../components/Stepper';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy';
-import { formatCountdown, msUntil } from '../lib/clock';
+import { formatCountdown, msUntil, serverNow } from '../lib/clock';
 import { formatShowtime } from '../lib/format';
+import { removeHoldRequest, saveHoldRequest, type StoredHoldRequest } from '../lib/holdRequestStore';
 import { effectiveSalesStatus } from '../lib/sales';
 import { useServerNow } from '../lib/useServerNow';
 import styles from './QuantityPage.module.css';
 
 const NOT_OPEN_RETRY_MS = 1_500;
 const NOT_OPEN_MAX_RETRIES = 5;
+
+const CONCLUDED_STATUSES = new Set([400, 404, 409, 422]);
+
+const isConcluded = (error: unknown) =>
+    error instanceof ApiError && CONCLUDED_STATUSES.has(error.status) && error.code !== 'BUYER_CHANGED';
+
+const newHoldRequest = (body: StoredHoldRequest['body'], buyerId: string): StoredHoldRequest => ({
+    key: newIdempotencyKey(),
+    body,
+    buyerId,
+    createdAt: new Date(serverNow()).toISOString(),
+});
 type Phase =
     | { kind: 'idle' }
     | { kind: 'holding' }
@@ -121,7 +134,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     const [buyerName, setBuyerName] = useState(me.nickname);
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
     const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    const pending = useRef<{ key: string; body: CreateOrderRequest; buyerId: string } | null>(null);
+    const pending = useRef<StoredHoldRequest | null>(null);
 
     const unmounted = useRef(false);
 
@@ -154,11 +167,8 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     };
 
     const hold = () => {
-        pending.current = {
-            key: newIdempotencyKey(),
-            body: { showtimeId: showtime.id, quantity: chosen, buyerName: buyerName.trim() },
-            buyerId: me.buyerId,
-        };
+        pending.current = newHoldRequest({ showtimeId: showtime.id, quantity: chosen, buyerName: buyerName.trim() }, me.buyerId);
+        saveHoldRequest(pending.current);
         void send(0, 0);
     };
 
@@ -171,6 +181,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         try {
             const order = await api.createOrder(request.body, request.key, request.buyerId);
             pending.current = null;
+            removeHoldRequest(request.buyerId, request.body.showtimeId);
             queryClient.setQueryData(queryKeys.order(order.token), order);
             void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtime.id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
@@ -179,6 +190,9 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
                 navigate(`/orders/${order.token}`);
             }
         } catch (error) {
+            if (isConcluded(error)) {
+                removeHoldRequest(request.buyerId, request.body.showtimeId);
+            }
             if (unmounted.current) {
                 return;
             }
@@ -206,7 +220,8 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
                     toast(text.problem.SALES_NOT_OPEN);
                     setPhase({ kind: 'waitingOpen' });
                     retryTimer.current = setTimeout(() => {
-                        pending.current = { ...request, key: newIdempotencyKey() };
+                        pending.current = newHoldRequest(request.body, request.buyerId);
+                        saveHoldRequest(pending.current);
                         void send(notOpenAttempt + 1, 0);
                     }, NOT_OPEN_RETRY_MS);
                     return;
