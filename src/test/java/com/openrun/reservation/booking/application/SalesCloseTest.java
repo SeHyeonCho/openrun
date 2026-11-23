@@ -211,7 +211,7 @@ class SalesCloseTest {
         clock.setInstant(JUST_BEFORE_CLOSE);
         List<Throwable> beforeClose = holdConcurrently(showtime, 1L);
         long succeeded = beforeClose.stream().filter(result -> result == null).count();
-        assertThat(succeeded).isLessThanOrEqualTo(GENERAL_SEATS);
+        assertThat(succeeded).isPositive().isLessThanOrEqualTo(GENERAL_SEATS);
         assertThat(beforeClose).filteredOn(result -> result != null).allSatisfy(result ->
                 assertThat(result).isInstanceOfSatisfying(SeatHoldRejectedException.class,
                         e -> assertThat(e.getRejection()).isEqualTo(SeatHoldRejection.SEAT_NOT_AVAILABLE)));
