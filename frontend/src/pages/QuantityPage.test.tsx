@@ -1,8 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
-import { findHoldRequest, saveHoldRequest } from '../lib/holdRequestStore';
+import { findHoldRequest, HOLD_REQUEST_RESEND_LIMIT_MS, saveHoldRequest } from '../lib/holdRequestStore';
 import { redirectTo } from '../lib/navigation';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
 import { disabled, finishKakaoLogin, renderRoute } from '../test/render';
@@ -342,6 +342,50 @@ describe('수량 선택', () => {
         expect(new Set(sentKeys).size).toBe(1);
         expect(storedHold()?.key).toBe(sentKeys[0]);
     });
+
+    it('화면을 열 때 보관한 지 23시간이 지난 요청은 보내지 않고 버린 뒤 예매 내역에서 확인하게 한다', async () => {
+        saveHoldRequest({
+            key: crypto.randomUUID(),
+            body: { showtimeId: 12, quantity: 1, buyerName: '밤산책' },
+            buyerId: MOCK_USER.buyerId,
+            createdAt: new Date(Date.now() - HOLD_REQUEST_RESEND_LIMIT_MS - 60_000).toISOString(),
+        });
+        renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 여기서 확인할 수 없어요' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: '예매 내역에서 확인' }).getAttribute('href')).toBe('/me/orders');
+        expect(sentKeys).toHaveLength(0);
+        expect(storedHold()).toBeNull();
+    });
+
+    it('보관한 지 23시간이 되기 전이면 화면을 열 때 같은 식별자로 결과를 확인한다', async () => {
+        const key = crypto.randomUUID();
+        saveHoldRequest({
+            key,
+            body: { showtimeId: 12, quantity: 1, buyerName: '밤산책' },
+            buyerId: MOCK_USER.buyerId,
+            createdAt: new Date(Date.now() - HOLD_REQUEST_RESEND_LIMIT_MS + 60_000).toISOString(),
+        });
+        const { router } = renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        expect(sentKeys).toEqual([key]);
+    });
+
+    it('결과를 모르는 채 23시간이 지난 뒤 다시 시도를 누르면 보내지 않고 예매 내역에서 확인하게 한다', async () => {
+        renderRoute(PATH, { scenario: 'hold-lost-always', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' }, { timeout: 5_000 });
+        expect(sentKeys).toHaveLength(3);
+
+        vi.setSystemTime(Date.now() + HOLD_REQUEST_RESEND_LIMIT_MS);
+        fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 여기서 확인할 수 없어요' })).toBeTruthy();
+        expect(sentKeys).toHaveLength(3);
+        expect(storedHold()).toBeNull();
+    }, 10_000);
 
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
         const view = renderRoute(PATH);

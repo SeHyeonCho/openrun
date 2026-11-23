@@ -18,7 +18,14 @@ import { useToast } from '../components/Toast';
 import { copy } from '../copy';
 import { formatCountdown, msUntil, serverNow } from '../lib/clock';
 import { formatShowtime } from '../lib/format';
-import { findHoldRequest, hasOtherBuyerHoldRequest, removeHoldRequest, saveHoldRequest, type StoredHoldRequest } from '../lib/holdRequestStore';
+import {
+    findHoldRequest,
+    hasOtherBuyerHoldRequest,
+    isPastResendLimit,
+    removeHoldRequest,
+    saveHoldRequest,
+    type StoredHoldRequest,
+} from '../lib/holdRequestStore';
 import { effectiveSalesStatus } from '../lib/sales';
 import { useServerNow } from '../lib/useServerNow';
 import styles from './QuantityPage.module.css';
@@ -44,7 +51,8 @@ type Phase =
     | { kind: 'resending' }
     | { kind: 'unknown' }
     | { kind: 'closed' }
-    | { kind: 'buyerChanged' };
+    | { kind: 'buyerChanged' }
+    | { kind: 'pastResendLimit' };
 
 export function QuantityPage() {
     const { performanceId = '', showtimeId = '' } = useParams();
@@ -189,6 +197,12 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         if (!request) {
             return;
         }
+        if (isPastResendLimit(request, serverNow())) {
+            pending.current = null;
+            removeHoldRequest(request.buyerId, request.body.showtimeId);
+            setPhase({ kind: 'pastResendLimit' });
+            return;
+        }
         setPhase({ kind: resendCount > 0 || recheck ? 'resending' : 'holding' });
         try {
             const order = await api.createOrder(request.body, request.key, request.buyerId);
@@ -299,6 +313,16 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
             >
                 {summary}
                 <Notice title={unknown.title} body={unknown.body} variant="outlined" centered live />
+            </Page>
+        );
+    }
+
+    if (phase.kind === 'pastResendLimit') {
+        const past = text.pastResendLimit;
+        return (
+            <Page header={header} bottomBar={<BottomBar><ButtonLink to="/me/orders">{past.toMyOrders}</ButtonLink></BottomBar>}>
+                {summary}
+                <Notice title={past.title} body={past.body} variant="outlined" centered live />
             </Page>
         );
     }
