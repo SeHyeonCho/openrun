@@ -76,7 +76,7 @@
 
 | 이름 | 값 | 설명 |
 |---|---|---|
-| 판매 상태 | `BEFORE_SALE`, `ON_SALE`, `SOLD_OUT`, `SALES_CLOSED` | `serverTime` 기준으로 계산한다 |
+| 판매 상태 | `BEFORE_SALE`, `ON_SALE`, `SOLD_OUT`, `SALES_CLOSED` | `serverTime` 기준으로 계산한다. 판매 시작 전이면 `BEFORE_SALE`, 판매 마감 시각부터는 `SALES_CLOSED`, 그 사이에 남은 수가 0이면 `SOLD_OUT`, 아니면 `ON_SALE`이다. 판매 전이나 마감 뒤에는 남은 수가 0이어도 `SOLD_OUT`이 아니다 |
 | 좌석 종류 | `GENERAL`(자유석), `RESERVED`(지정석) | 한 회차는 한 종류만 판다 |
 | 주문 상태 | `HELD`, `CONFIRMED`, `EXPIRED`, `CANCELLED` | `serverTime` 기준이다. 기한이 지난 `HELD` 주문은 `EXPIRED`로 준다 |
 
