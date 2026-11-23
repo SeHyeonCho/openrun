@@ -1,17 +1,19 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
-import { IDEMPOTENCY_HEADER } from '../api/queries';
+import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
-import { disabled, renderRoute } from '../test/render';
+import { disabled, finishKakaoLogin, renderRoute } from '../test/render';
 import { server } from '../test/setup';
 
-const PATH = '/shows/1/showtimes/12/quantity';
+const PATH = '/performances/1/showtimes/12/quantity';
 
 const sentKeys: (string | null)[] = [];
+const sentBuyers: (string | null)[] = [];
 server.events.on('request:start', ({ request }) => {
     if (request.method === 'POST' && new URL(request.url).pathname === '/api/orders') {
         sentKeys.push(request.headers.get(IDEMPOTENCY_HEADER));
+        sentBuyers.push(request.headers.get(EXPECTED_BUYER_HEADER));
     }
 });
 
@@ -33,6 +35,7 @@ const hold = (quantity: number) => fireEvent.click(screen.getByRole('button', { 
 describe('수량 선택', () => {
     afterEach(() => {
         sentKeys.length = 0;
+        sentBuyers.length = 0;
     });
 
     it('1인 최대 좌석 수에서 이미 가진 수를 뺀 만큼까지만 고를 수 있다', async () => {
@@ -43,6 +46,32 @@ describe('수량 선택', () => {
         expect(screen.getByText('1인 최대 4매 · 이미 가진 수 2매 · 지금 2매까지 고를 수 있어요.')).toBeTruthy();
         expect(disabled(screen.getByRole('button', { name: '한 장 더하기' }))).toBe(true);
         expect(screen.getByRole('button', { name: '2매 선택 완료' })).toBeTruthy();
+    });
+
+    it('지정석 회차의 매수 선택 주소로 들어오면 구매 가능 수를 묻거나 선점하지 않고 공연 페이지로 안내한다', async () => {
+        const requested: string[] = [];
+        const record = ({ request }: { request: Request }) => requested.push(new URL(request.url).pathname);
+        server.events.on('request:start', record);
+
+        renderRoute('/performances/1/showtimes/15/quantity', { loggedIn: true });
+
+        expect(await screen.findByText('지정석은 아직 이 화면에서 예매할 수 없어요')).toBeTruthy();
+        expect(screen.getByRole('link', { name: '공연 페이지로' }).getAttribute('href')).toBe('/performances/1');
+        expect(screen.queryByRole('button', { name: /선택 완료/ })).toBeNull();
+        expect(requested).not.toContain('/api/showtimes/15/availability');
+        expect(requested).not.toContain('/api/orders');
+        server.events.removeListener('request:start', record);
+    });
+
+    it('확정까지 주어지는 시간은 고른 회차의 선점 유지 시간으로 알린다', async () => {
+        renderRoute(PATH, {
+            loggedIn: true,
+            prepare: (db) => {
+                db.showtimes.find((s) => s.id === 12)!.holdMinutes = 5;
+            },
+        });
+
+        expect(await screen.findByText('선택을 완료한 뒤 5분 안에 예매를 확정해 주세요.')).toBeTruthy();
     });
 
     it('예매자 이름은 카카오 닉네임으로 채워 두고, 비우면 선점할 수 없다', async () => {
@@ -66,6 +95,28 @@ describe('수량 선택', () => {
         await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
     });
 
+    it('선점 요청에 로그인한 구매자의 buyerId를 Expected-Buyer-Id 헤더로 담는다', async () => {
+        renderRoute(PATH, { loggedIn: true });
+
+        await screen.findByRole('button', { name: '1매 선택 완료' });
+        hold(1);
+
+        await waitFor(() => expect(sentBuyers).toEqual([MOCK_USER.buyerId]));
+    });
+
+    it('그사이 다른 계정으로 로그인돼 BUYER_CHANGED를 받으면 다시 보내지 않고, 예매를 시작한 계정으로 예매 내역에서 확인하라고 안내한다', async () => {
+        renderRoute(PATH, { scenario: 'buyer-changed', loggedIn: true, prepare: withoutOwnHold });
+
+        await screen.findByRole('button', { name: '1매 선택 완료' });
+        hold(1);
+
+        expect(await screen.findByRole('heading', { name: '다른 계정으로 로그인돼 있어요' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: '예매 내역 보기' }).getAttribute('href')).toBe('/me/orders');
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        expect(sentKeys).toHaveLength(1);
+        expect(myHeldOrders()).toHaveLength(0);
+    });
+
     it('고르는 사이 남은 수가 줄면 새 남은 수를 알리고 수량을 줄인다', async () => {
         renderRoute(PATH, { scenario: 'seat-not-available', loggedIn: true, prepare: withoutOwnHold });
 
@@ -85,7 +136,7 @@ describe('수량 선택', () => {
 
         expect(await screen.findByText('고르는 사이 매진됐어요.')).toBeTruthy();
         expect(screen.getByRole('heading', { name: '매진됐어요' })).toBeTruthy();
-        expect(screen.getByRole('link', { name: '다른 회차 보기' }).getAttribute('href')).toBe('/shows/1');
+        expect(screen.getByRole('link', { name: '다른 회차 보기' }).getAttribute('href')).toBe('/performances/1');
     });
 
     it('1인 최대 좌석 수를 넘으면 한도와 이미 가진 수를 알리고 수량을 줄인다', async () => {
@@ -192,11 +243,13 @@ describe('수량 선택', () => {
     }, 10_000);
 
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
-        renderRoute(PATH);
+        const view = renderRoute(PATH);
 
         expect(await screen.findByRole('heading', { name: '로그인하면 매수를 고를 수 있어요' })).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: '카카오 로그인' }));
+        const { router } = finishKakaoLogin(view);
 
         expect(await screen.findByRole('button', { name: '1매 선택 완료' })).toBeTruthy();
+        expect(router.state.location.pathname).toBe(PATH);
     });
 });

@@ -1,5 +1,4 @@
 import type { SalesStatus, SeatKind } from './api/types';
-import { numbersWith } from './lib/josa';
 
 export const copy = {
     common: {
@@ -12,6 +11,8 @@ export const copy = {
         retry: '다시 시도',
         unknownError: '요청을 처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
         loginFailed: '로그인하지 못했어요. 다시 시도해 주세요.',
+        logout: '로그아웃',
+        logoutFailed: '로그아웃하지 못했어요. 다시 시도해 주세요.',
         meFailed: '로그인 상태를 확인하지 못했어요',
         meFailedBody: '연결이 고르지 않을 수 있어요. 잠시 뒤 다시 시도해 주세요.',
     },
@@ -19,7 +20,7 @@ export const copy = {
         kakao: '카카오 로그인',
         note: '따로 가입하지 않아요. 카카오 계정의 닉네임만 받아요.',
     },
-    seatKind: { FREE: '자유석', RESERVED: '지정석' } satisfies Record<SeatKind, string>,
+    seatKind: { GENERAL: '자유석', RESERVED: '지정석' } satisfies Record<SeatKind, string>,
     salesStatus: {
         BEFORE_SALE: '판매 전',
         ON_SALE: '판매 중',
@@ -30,7 +31,7 @@ export const copy = {
         title: '페이지를 찾을 수 없어요',
         body: '주소가 잘렸거나 잘못 복사됐을 수 있어요. 받은 링크를 다시 확인해 주세요.',
     },
-    showPage: {
+    performancePage: {
         notFound: '공연을 찾을 수 없어요',
         notFoundBody: '링크가 잘렸거나 잘못 복사됐을 수 있어요. 받은 링크를 다시 확인해 주세요.',
         posterAlt: (title: string) => `${title} 포스터`,
@@ -50,8 +51,9 @@ export const copy = {
         },
         guide: {
             title: '예매 안내',
-            entry: '입장번호는 남은 번호 가운데 앞 번호부터 자동으로 배정돼요.',
+            entry: '입장번호는 예매를 확정한 순서대로 배정돼요. 먼저 골라도 늦게 확정하면 뒷번호를 받아요.',
             hold: (minutes: number) => `매수를 고른 뒤 ${minutes}분 안에 예매를 확정하지 않으면 표가 다시 풀려요.`,
+            holdPerShowtime: '예매를 확정할 수 있는 시간은 회차마다 달라요. 매수를 고를 때 알려 드려요.',
             limit: (max: number) => `한 회차에서 1인 최대 ${max}매까지 가질 수 있어요.`,
             limitPerShowtime: '1인 최대 매수는 회차마다 따로 세요.',
         },
@@ -67,7 +69,10 @@ export const copy = {
             soldOutNote: '시간 안에 확정되지 않은 표가 다시 풀리면 예매할 수 있어요.',
             closed: '판매 마감',
             closedNote: '이 회차는 판매가 끝났어요.',
+            reserved: '지정석은 준비 중',
+            reservedNote: '지정석은 아직 이 화면에서 예매할 수 없어요. 자유석 회차를 골라 주세요.',
         },
+        reservedNote: (note: string) => `지정석 · ${note}`,
     },
     quantityPage: {
         title: '매수 선택',
@@ -83,8 +88,8 @@ export const copy = {
         buyerName: '예매자 이름',
         buyerNameNote: '카카오 닉네임을 가져왔어요. 입장할 때 확인하는 이름이라 고칠 수 있어요.',
         buyerNameRequired: '예매자 이름을 적어 주세요.',
-        guideEntry: '입장번호는 남은 번호 가운데 앞 번호부터 자동으로 배정돼요.',
-        guideSpread: '여러 장이면 번호가 이어지지 않을 수 있어요.',
+        guideEntry: '입장번호는 예매를 확정한 순서대로 배정돼요.',
+        guideSpread: '여러 장이면 이어진 번호를 받아요.',
         hold: (quantity: number) => `${quantity}매 선택 완료`,
         holding: '선택하는 중',
         holdNote: (minutes: number) => `선택을 완료한 뒤 ${minutes}분 안에 예매를 확정해 주세요.`,
@@ -103,6 +108,11 @@ export const copy = {
             body: '판매 마감 시각이 지나 새로 예매할 수 없어요.',
             cta: '공연 페이지로',
         },
+        reserved: {
+            title: '지정석은 아직 이 화면에서 예매할 수 없어요',
+            body: '이 화면에서는 자유석 회차만 예매할 수 있어요. 공연 페이지에서 자유석 회차를 골라 주세요.',
+            cta: '공연 페이지로',
+        },
         limitReached: {
             title: (max: number) => `이 회차에서 1인 최대 ${max}매를 모두 가지고 있어요`,
             body: '확정 대기 중인 예매를 취소하거나 예매 가능 시간이 지나면 다시 고를 수 있어요.',
@@ -116,6 +126,11 @@ export const copy = {
             retry: '다시 시도',
             note: '다시 시도해도 같은 요청으로 보내서 예매는 하나만 생겨요.',
         },
+        buyerChanged: {
+            title: '다른 계정으로 로그인돼 있어요',
+            body: '예매를 시작한 뒤 다른 카카오 계정으로 로그인해서 요청을 보내지 않았어요. 예매를 시작한 계정으로 다시 로그인해 예매 내역에서 확인해 주세요.',
+            toMyOrders: '예매 내역 보기',
+        },
         problem: {
             SALES_NOT_OPEN: '아직 판매 전이에요. 잠시 뒤 다시 시도할게요.',
             salesNotOpenGaveUp: '아직 판매 전이에요. 잠시 뒤 다시 눌러 주세요.',
@@ -128,6 +143,7 @@ export const copy = {
     ticket: {
         label: '모바일 티켓',
         entry: '입장번호',
+        entryPending: '확정하면 입장번호가 나와요',
         quantity: (count: number) => `${count}매`,
         qr: '입장용 QR',
         qrDim: '확정 전이라 흐린 입장용 QR',
@@ -151,7 +167,7 @@ export const copy = {
         },
         cancelSheet: {
             title: '예매를 취소할까요?',
-            body: (numbers: number[]) => `입장번호 ${numbersWith(numbers, ['이', '가'])} 바로 다른 사람에게 풀려요. 다시 예매하면 다른 번호를 받을 수 있어요.`,
+            body: (count: number) => `고른 ${count}매가 바로 다른 사람에게 풀려요.`,
             caption: (count: number) => `취소한 ${count}매는 1인 최대 매수에서 빠져요.`,
             confirm: '예매 취소',
             cancelling: '취소하는 중',
@@ -202,7 +218,8 @@ export const copy = {
             calendar: '캘린더 파일을 받았어요. 열면 일정에 추가돼요.',
         },
         shareTitle: (title: string) => `${title} 예매`,
-        calendarDescription: (numbers: number[], buyer: string, url: string) => `입장번호 ${numbers.join(' · ')} · 예매자 ${buyer}\n예매 보기 ${url}`,
+        calendarDescription: (numbers: number[], buyer: string, url: string) =>
+            `${numbers.length > 0 ? `입장번호 ${numbers.join(' · ')} · ` : ''}예매자 ${buyer}\n예매 보기 ${url}`,
     },
     myOrdersPage: {
         title: '예매 내역',
@@ -211,8 +228,8 @@ export const copy = {
         emptyBody: '공연 페이지에서 회차를 골라 예매하면 여기에 모여요.',
         footer: '예매 링크를 잃어버려도 여기서 다시 열 수 있어요.',
         note: {
-            held: (count: number, numbers: number[], left: string) => `${count}매 · 입장번호 ${numbers.join(' · ')} · ${left} 남음`,
-            confirmed: (count: number, numbers: number[]) => `${count}매 · 입장번호 ${numbers.join(' · ')}`,
+            held: (count: number, left: string) => `${count}매 · 확정하면 입장번호가 나와요 · ${left} 남음`,
+            confirmed: (count: number, numbers: number[]) => (numbers.length > 0 ? `${count}매 · 입장번호 ${numbers.join(' · ')}` : `${count}매`),
             expired: (count: number) => `${count}매 · 시간 안에 확정하지 않았어요`,
             cancelled: (count: number) => `${count}매 · 예매를 취소했어요`,
         },

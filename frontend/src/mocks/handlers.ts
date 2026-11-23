@@ -1,5 +1,6 @@
 import { delay, http, HttpResponse } from 'msw';
-import { IDEMPOTENCY_HEADER } from '../api/queries';
+import { CSRF_COOKIE, CSRF_HEADER } from '../api/client';
+import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
 import type {
     AvailabilityResponse,
     CreateOrderRequest,
@@ -8,13 +9,15 @@ import type {
     MyOrdersResponse,
     OrderResponse,
     ProblemCode,
-    ShowResponse,
+    PerformanceResponse,
 } from '../api/types';
 import {
-    assignNumbers,
+    holdMsOf,
+    issueEntryNumbers,
     isLive,
     loadDb,
     MOCK_USER,
+    OTHER_BUYER_ID,
     mockNow,
     newToken,
     ownedCountOf,
@@ -30,6 +33,7 @@ import { currentScenario, isMockLoggedIn, setMockLoggedIn } from './scenarios';
 const titles: Record<number, string> = {
     400: 'Bad Request',
     401: 'Unauthorized',
+    403: 'Forbidden',
     404: 'Not Found',
     409: 'Conflict',
     422: 'Unprocessable Content',
@@ -37,16 +41,21 @@ const titles: Record<number, string> = {
 
 function problem(status: number, code?: ProblemCode, detail?: string) {
     return HttpResponse.json(
-        { type: 'about:blank', title: titles[status] ?? 'Error', status, detail, code },
+        { type: 'about:blank', title: titles[status] ?? 'Error', status, detail, code, serverTime: serverTime(loadDb()) },
         { status, headers: { 'Content-Type': 'application/problem+json' } },
     );
 }
 
-async function slowDown() {
+const MOCK_CSRF_TOKEN = 'mock-csrf-token';
+
+async function receive() {
+    document.cookie = `${CSRF_COOKIE}=${MOCK_CSRF_TOKEN}; path=/`;
     if (currentScenario() === 'slow') {
         await delay(2000);
     }
 }
+
+const csrfRejected = (request: Request) => request.headers.get(CSRF_HEADER) !== MOCK_CSRF_TOKEN;
 
 function firstTime(db: MockDb, key: string) {
     if (db.once[key]) {
@@ -58,15 +67,17 @@ function firstTime(db: MockDb, key: string) {
 
 const serverTime = (db: MockDb) => new Date(mockNow(db)).toISOString();
 
+const meView = (db: MockDb): MeResponse => ({ buyerId: MOCK_USER.buyerId, nickname: MOCK_USER.nickname, serverTime: serverTime(db) });
+
 export function orderView(db: MockDb, order: MockOrder): OrderResponse {
     const showtime = db.showtimes.find((s) => s.id === order.showtimeId)!;
-    const show = db.shows.find((s) => s.id === showtime.showId)!;
+    const performance = db.performances.find((p) => p.id === showtime.performanceId)!;
     return {
         token: order.token,
         status: order.status,
-        show: { id: show.id, title: show.title, venue: show.venue },
+        performance: { id: performance.id, title: performance.title, venue: performance.venue },
         showtime: { id: showtime.id, startsAt: showtime.startsAt, endsAt: showtime.endsAt },
-        quantity: order.entryNumbers.length,
+        quantity: order.quantity,
         entryNumbers: order.entryNumbers,
         buyerName: order.buyerName,
         heldUntil: order.heldUntil,
@@ -76,46 +87,56 @@ export function orderView(db: MockDb, order: MockOrder): OrderResponse {
     };
 }
 
+const showtimeOf = (db: MockDb, order: MockOrder) => db.showtimes.find((s) => s.id === order.showtimeId)!;
+
+function confirm(db: MockDb, order: MockOrder) {
+    const showtime = showtimeOf(db, order);
+    order.status = 'CONFIRMED';
+    order.entryNumbers = showtime.seatKind === 'GENERAL' ? issueEntryNumbers(showtime, order.quantity) : [];
+}
+
 function findOwnOrder(db: MockDb, token: string) {
     return db.orders.find((o) => o.token === token && o.ownerId === MOCK_USER.id);
 }
 
 export const handlers = [
     http.post('/api/auth/mock-login', async () => {
-        await slowDown();
+        await receive();
         setMockLoggedIn(true);
-        return HttpResponse.json<MeResponse>({ nickname: MOCK_USER.nickname });
+        return HttpResponse.json<MeResponse>(meView(loadDb()));
     }),
 
-    http.post('/api/auth/logout', async () => {
-        await slowDown();
+    http.post('/api/logout', async ({ request }) => {
+        await receive();
+        if (csrfRejected(request)) {
+            return problem(403);
+        }
         setMockLoggedIn(false);
         return new HttpResponse(null, { status: 204 });
     }),
 
     http.get('/api/me', async () => {
-        await slowDown();
+        await receive();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
-        return HttpResponse.json<MeResponse>({ nickname: MOCK_USER.nickname });
+        return HttpResponse.json<MeResponse>(meView(loadDb()));
     }),
 
-    http.get('/api/shows/:showId', async ({ params }) => {
-        await slowDown();
+    http.get('/api/performances/:performanceId', async ({ params }) => {
+        await receive();
         const db = loadDb();
-        const show = db.shows.find((s) => String(s.id) === params.showId);
-        if (!show) {
+        const performance = db.performances.find((p) => String(p.id) === params.performanceId);
+        if (!performance) {
             return problem(404);
         }
         const now = mockNow(db);
-        return HttpResponse.json<ShowResponse>({
-            id: show.id,
-            title: show.title,
-            venue: show.venue,
-            posterUrl: show.posterUrl,
-            holdMinutes: Math.round(db.holdMs / 60_000) || 1,
-            showtimes: show.showtimeIds.map((id) => {
+        return HttpResponse.json<PerformanceResponse>({
+            id: performance.id,
+            title: performance.title,
+            venue: performance.venue,
+            posterUrl: performance.posterUrl,
+            showtimes: performance.showtimeIds.map((id) => {
                 const st = db.showtimes.find((s) => s.id === id)!;
                 return {
                     id: st.id,
@@ -123,7 +144,8 @@ export const handlers = [
                     endsAt: st.endsAt,
                     salesOpensAt: st.salesOpensAt,
                     salesClosesAt: st.salesClosesAt,
-                    seatKind: 'FREE',
+                    holdMinutes: Math.round(holdMsOf(db, st) / 60_000) || 1,
+                    seatKind: st.seatKind,
                     salesStatus: salesStatusOf(db, st, now),
                     remaining: remainingOf(db, st, now),
                     maxSeatsPerBuyer: st.maxSeatsPerBuyer,
@@ -134,7 +156,7 @@ export const handlers = [
     }),
 
     http.get('/api/showtimes/:showtimeId/availability', async ({ params }) => {
-        await slowDown();
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
@@ -157,13 +179,24 @@ export const handlers = [
     http.post('/api/orders', async ({ request }) => {
         const body = ((await request.json().catch(() => null)) ?? {}) as Partial<CreateOrderRequest>;
         const key = request.headers.get(IDEMPOTENCY_HEADER);
-        await slowDown();
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
+        if (csrfRejected(request)) {
+            return problem(403);
+        }
         if (!key) {
             return problem(400, undefined, '선점 요청에는 Idempotency-Key가 필요하다');
+        }
+        const expectedBuyerId = request.headers.get(EXPECTED_BUYER_HEADER);
+        if (!expectedBuyerId) {
+            return problem(400, undefined, '선점 요청에는 Expected-Buyer-Id가 필요하다');
+        }
+        const loggedInBuyerId = db.scenario === 'buyer-changed' ? OTHER_BUYER_ID : MOCK_USER.buyerId;
+        if (expectedBuyerId !== loggedInBuyerId) {
+            return problem(409, 'BUYER_CHANGED');
         }
         const quantity = Number(body.quantity);
         const buyerName = String(body.buyerName ?? '').trim();
@@ -196,6 +229,9 @@ export const handlers = [
         if (!st) {
             return problem(404);
         }
+        if (st.seatKind !== 'GENERAL') {
+            return problem(400, undefined, '지정석 회차는 수량 대신 좌석(seatIds)으로 선점한다');
+        }
         let now = mockNow(db);
 
         if (db.scenario === 'sales-not-open-once' && firstTime(db, 'hold')) {
@@ -218,7 +254,8 @@ export const handlers = [
                     showtimeId: st.id,
                     ownerId: MOCK_USER.id,
                     buyerName,
-                    entryNumbers: assignNumbers(db, st, missing, now),
+                    quantity: missing,
+                    entryNumbers: issueEntryNumbers(st, missing),
                     status: 'CONFIRMED',
                     heldUntil: new Date(now).toISOString(),
                     createdAt: new Date(now - 30_000).toISOString(),
@@ -250,9 +287,10 @@ export const handlers = [
             showtimeId: st.id,
             ownerId: MOCK_USER.id,
             buyerName,
-            entryNumbers: assignNumbers(db, st, quantity, now),
+            quantity,
+            entryNumbers: [],
             status: 'HELD',
-            heldUntil: new Date(now + db.holdMs).toISOString(),
+            heldUntil: new Date(now + holdMsOf(db, st)).toISOString(),
             createdAt: new Date(now).toISOString(),
         };
         db.orders.push(order);
@@ -266,7 +304,7 @@ export const handlers = [
     }),
 
     http.get('/api/orders/:token', async ({ params }) => {
-        await slowDown();
+        await receive();
         const db = loadDb();
         const order = db.orders.find((o) => o.token === params.token);
         if (!order) {
@@ -275,11 +313,14 @@ export const handlers = [
         return HttpResponse.json<OrderResponse>(orderView(db, order));
     }),
 
-    http.post('/api/orders/:token/confirm', async ({ params }) => {
-        await slowDown();
+    http.post('/api/orders/:token/confirm', async ({ params, request }) => {
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
+        }
+        if (csrfRejected(request)) {
+            return problem(403);
         }
         const order = findOwnOrder(db, String(params.token));
         if (!order) {
@@ -300,7 +341,9 @@ export const handlers = [
             saveDb(db);
             return problem(409, 'ORDER_EXPIRED');
         }
-        order.status = 'CONFIRMED';
+        if (order.status === 'HELD') {
+            confirm(db, order);
+        }
         saveDb(db);
         if (db.scenario === 'confirm-lost-once' && firstTime(db, 'confirm')) {
             saveDb(db);
@@ -309,11 +352,14 @@ export const handlers = [
         return HttpResponse.json<OrderResponse>(orderView(db, order));
     }),
 
-    http.post('/api/orders/:token/cancel', async ({ params }) => {
-        await slowDown();
+    http.post('/api/orders/:token/cancel', async ({ params, request }) => {
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
+        }
+        if (csrfRejected(request)) {
+            return problem(403);
         }
         const order = findOwnOrder(db, String(params.token));
         if (!order) {
@@ -321,7 +367,7 @@ export const handlers = [
         }
         const now = mockNow(db);
         if (db.scenario === 'cancel-confirmed' && order.status === 'HELD') {
-            order.status = 'CONFIRMED';
+            confirm(db, order);
         }
         if (order.status === 'CONFIRMED') {
             saveDb(db);
@@ -337,7 +383,7 @@ export const handlers = [
     }),
 
     http.get('/api/me/orders', async () => {
-        await slowDown();
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
@@ -350,7 +396,7 @@ export const handlers = [
                 return {
                     token: view.token,
                     status: view.status,
-                    show: view.show,
+                    performance: view.performance,
                     showtime: view.showtime,
                     quantity: view.quantity,
                     entryNumbers: view.entryNumbers,

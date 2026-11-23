@@ -1,22 +1,26 @@
-import type { OrderStatus, ProblemCode, SalesStatus } from '../api/types';
+import type { OrderStatus, ProblemCode, SalesStatus, SeatKind } from '../api/types';
 import { currentScenario, type ScenarioId } from './scenarios';
 
-export const MOCK_USER = { id: 'kakao-mock-me', nickname: '밤산책' };
+export const MOCK_USER = { id: 'kakao-mock-me', buyerId: 'b_mockMe7Qm2xK', nickname: '밤산책' };
 const OTHER_USER = 'kakao-mock-other';
+export const OTHER_BUYER_ID = 'b_mockOther9Lr';
 
 export interface MockShowtime {
     id: number;
-    showId: number;
+    performanceId: number;
+    seatKind: SeatKind;
     startsAt: string;
     endsAt: string;
     salesOpensAt: string;
     salesClosesAt: string;
     capacity: number;
     maxSeatsPerBuyer: number;
-    takenByOthers: number[];
+    holdMinutes?: number;
+    soldToOthers: number;
+    lastEntryNumber: number;
 }
 
-export interface MockShow {
+export interface MockPerformance {
     id: number;
     title: string;
     venue: string;
@@ -29,6 +33,7 @@ export interface MockOrder {
     showtimeId: number;
     ownerId: string;
     buyerName: string;
+    quantity: number;
     entryNumbers: number[];
     status: OrderStatus;
     heldUntil: string;
@@ -39,7 +44,7 @@ export interface MockDb {
     scenario: ScenarioId;
     skewMs: number;
     holdMs: number;
-    shows: MockShow[];
+    performances: MockPerformance[];
     showtimes: MockShowtime[];
     orders: MockOrder[];
     once: Record<string, boolean>;
@@ -52,11 +57,10 @@ export interface IdempotencyRecord {
     code?: ProblemCode;
 }
 
-const DB_KEY = 'openrun.mock.db.v2';
+const DB_KEY = 'openrun.mock.db.v3';
 const MINUTE = 60_000;
 
 const kst = (local: string) => new Date(`${local}:00+09:00`).toISOString();
-const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const iso = (ms: number) => new Date(ms).toISOString();
 
 export function mockNow(db: MockDb) {
@@ -70,13 +74,13 @@ export function createDb(scenario: ScenarioId): MockDb {
         scenario,
         skewMs,
         holdMs: scenario === 'short-hold' ? 30_000 : 10 * MINUTE,
-        shows: [
+        performances: [
             {
                 id: 1,
                 title: 'NIGHT SIGNAL',
                 venue: '홍대 라이브홀 B2',
                 posterUrl: '/mock/night-signal-poster.png',
-                showtimeIds: [11, 12, 13, 14],
+                showtimeIds: [11, 12, 13, 14, 15],
             },
             {
                 id: 2,
@@ -89,58 +93,81 @@ export function createDb(scenario: ScenarioId): MockDb {
         showtimes: [
             {
                 id: 11,
-                showId: 1,
+                performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-04T19:30'),
                 endsAt: kst('2026-12-04T21:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
                 salesClosesAt: iso(now - 60 * MINUTE),
                 capacity: 90,
                 maxSeatsPerBuyer: 4,
-                takenByOthers: range(1, 70),
+                soldToOthers: 70,
+                lastEntryNumber: 70,
             },
             {
                 id: 12,
-                showId: 1,
+                performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-05T19:00'),
                 endsAt: kst('2026-12-05T21:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
                 salesClosesAt: kst('2026-12-05T21:30'),
                 capacity: 90,
                 maxSeatsPerBuyer: 4,
-                takenByOthers: range(1, 36),
+                soldToOthers: 36,
+                lastEntryNumber: 36,
             },
             {
                 id: 13,
-                showId: 1,
+                performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-06T15:00'),
                 endsAt: kst('2026-12-06T17:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
                 salesClosesAt: kst('2026-12-06T17:30'),
                 capacity: 60,
                 maxSeatsPerBuyer: 4,
-                takenByOthers: range(1, 60).filter((n) => n !== 12),
+                soldToOthers: 59,
+                lastEntryNumber: 60,
             },
             {
                 id: 14,
-                showId: 1,
+                performanceId: 1,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-06T19:00'),
                 endsAt: kst('2026-12-06T21:30'),
                 salesOpensAt: kst('2026-12-03T20:00'),
                 salesClosesAt: kst('2026-12-06T21:30'),
                 capacity: 90,
                 maxSeatsPerBuyer: 4,
-                takenByOthers: [],
+                soldToOthers: 0,
+                lastEntryNumber: 0,
+            },
+            {
+                id: 15,
+                performanceId: 1,
+                seatKind: 'RESERVED',
+                startsAt: kst('2026-12-07T18:00'),
+                endsAt: kst('2026-12-07T20:00'),
+                salesOpensAt: kst('2026-11-01T20:00'),
+                salesClosesAt: kst('2026-12-07T20:00'),
+                capacity: 40,
+                maxSeatsPerBuyer: 4,
+                soldToOthers: 10,
+                lastEntryNumber: 0,
             },
             {
                 id: 21,
-                showId: 2,
+                performanceId: 2,
+                seatKind: 'GENERAL',
                 startsAt: kst('2026-12-12T18:00'),
                 endsAt: kst('2026-12-12T20:00'),
                 salesOpensAt: iso(Math.ceil((now + 30_000) / 1000) * 1000),
                 salesClosesAt: kst('2026-12-12T20:00'),
                 capacity: 40,
                 maxSeatsPerBuyer: 2,
-                takenByOthers: [],
+                soldToOthers: 0,
+                lastEntryNumber: 0,
             },
         ],
         orders: [
@@ -149,7 +176,8 @@ export function createDb(scenario: ScenarioId): MockDb {
                 showtimeId: 12,
                 ownerId: MOCK_USER.id,
                 buyerName: MOCK_USER.nickname,
-                entryNumbers: [37, 38],
+                quantity: 2,
+                entryNumbers: [],
                 status: 'HELD',
                 heldUntil: iso(now + 9 * MINUTE + 41_000),
                 createdAt: iso(now - 19_000),
@@ -159,6 +187,7 @@ export function createDb(scenario: ScenarioId): MockDb {
                 showtimeId: 13,
                 ownerId: MOCK_USER.id,
                 buyerName: MOCK_USER.nickname,
+                quantity: 1,
                 entryNumbers: [12],
                 status: 'CONFIRMED',
                 heldUntil: iso(now - 2 * 24 * 60 * MINUTE),
@@ -169,7 +198,8 @@ export function createDb(scenario: ScenarioId): MockDb {
                 showtimeId: 12,
                 ownerId: MOCK_USER.id,
                 buyerName: MOCK_USER.nickname,
-                entryNumbers: [21, 22],
+                quantity: 2,
+                entryNumbers: [],
                 status: 'EXPIRED',
                 heldUntil: iso(now - 3 * 24 * 60 * MINUTE),
                 createdAt: iso(now - 3 * 24 * 60 * MINUTE - 10 * MINUTE),
@@ -179,7 +209,8 @@ export function createDb(scenario: ScenarioId): MockDb {
                 showtimeId: 11,
                 ownerId: MOCK_USER.id,
                 buyerName: MOCK_USER.nickname,
-                entryNumbers: [5],
+                quantity: 1,
+                entryNumbers: [],
                 status: 'CANCELLED',
                 heldUntil: iso(now - 4 * 24 * 60 * MINUTE),
                 createdAt: iso(now - 4 * 24 * 60 * MINUTE - 10 * MINUTE),
@@ -189,7 +220,8 @@ export function createDb(scenario: ScenarioId): MockDb {
                 showtimeId: 12,
                 ownerId: OTHER_USER,
                 buyerName: '새벽달',
-                entryNumbers: [39, 40],
+                quantity: 2,
+                entryNumbers: [],
                 status: 'HELD',
                 heldUntil: iso(now + 8 * MINUTE + 27_000),
                 createdAt: iso(now - MINUTE),
@@ -234,22 +266,22 @@ export function resetDb() {
     }
 }
 
+export function holdMsOf(db: MockDb, showtime: MockShowtime) {
+    return showtime.holdMinutes === undefined ? db.holdMs : showtime.holdMinutes * MINUTE;
+}
+
 export function isLive(order: MockOrder, now: number) {
     return order.status === 'CONFIRMED' || (order.status === 'HELD' && now < Date.parse(order.heldUntil));
 }
 
-export function takenNumbers(db: MockDb, showtime: MockShowtime, now: number) {
-    const taken = new Set(showtime.takenByOthers);
-    for (const order of db.orders) {
-        if (order.showtimeId === showtime.id && isLive(order, now)) {
-            order.entryNumbers.forEach((n) => taken.add(n));
-        }
-    }
-    return taken;
+function liveQuantityOf(db: MockDb, showtime: MockShowtime, now: number) {
+    return db.orders
+        .filter((order) => order.showtimeId === showtime.id && isLive(order, now))
+        .reduce((sum, order) => sum + order.quantity, 0);
 }
 
 export function remainingOf(db: MockDb, showtime: MockShowtime, now: number) {
-    return showtime.capacity - takenNumbers(db, showtime, now).size;
+    return Math.max(0, showtime.capacity - showtime.soldToOthers - liveQuantityOf(db, showtime, now));
 }
 
 export function salesStatusOf(db: MockDb, showtime: MockShowtime, now: number): SalesStatus {
@@ -265,24 +297,18 @@ export function salesStatusOf(db: MockDb, showtime: MockShowtime, now: number): 
 export function ownedCountOf(db: MockDb, showtimeId: number, userId: string, now: number) {
     return db.orders
         .filter((order) => order.showtimeId === showtimeId && order.ownerId === userId && isLive(order, now))
-        .reduce((sum, order) => sum + order.entryNumbers.length, 0);
+        .reduce((sum, order) => sum + order.quantity, 0);
 }
 
 export function shrinkRemainingTo(db: MockDb, showtime: MockShowtime, left: number, now: number) {
-    const taken = takenNumbers(db, showtime, now);
-    const free = range(1, showtime.capacity).filter((n) => !taken.has(n));
-    showtime.takenByOthers.push(...free.slice(0, Math.max(0, free.length - left)));
+    const sold = Math.max(0, remainingOf(db, showtime, now) - left);
+    showtime.soldToOthers += sold;
+    showtime.lastEntryNumber += sold;
 }
 
-export function assignNumbers(db: MockDb, showtime: MockShowtime, quantity: number, now: number) {
-    const taken = takenNumbers(db, showtime, now);
-    const numbers = range(1, showtime.capacity).filter((n) => !taken.has(n)).slice(0, quantity);
-    for (const order of db.orders) {
-        const lapsed = order.showtimeId === showtime.id && order.status === 'HELD' && !isLive(order, now);
-        if (lapsed && order.entryNumbers.some((n) => numbers.includes(n))) {
-            order.status = 'EXPIRED';
-        }
-    }
+export function issueEntryNumbers(showtime: MockShowtime, quantity: number) {
+    const numbers = Array.from({ length: quantity }, (_, i) => showtime.lastEntryNumber + 1 + i);
+    showtime.lastEntryNumber += quantity;
     return numbers;
 }
 

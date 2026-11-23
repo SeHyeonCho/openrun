@@ -2,7 +2,7 @@ export type IsoDateTime = string;
 
 export type SalesStatus = 'BEFORE_SALE' | 'ON_SALE' | 'SOLD_OUT' | 'SALES_CLOSED';
 
-export type SeatKind = 'FREE' | 'RESERVED';
+export type SeatKind = 'GENERAL' | 'RESERVED';
 
 export type OrderStatus = 'HELD' | 'CONFIRMED' | 'EXPIRED' | 'CANCELLED';
 
@@ -13,10 +13,10 @@ export type ProblemCode =
     | 'SEAT_NOT_IN_SHOWTIME'
     | 'SEAT_NOT_AVAILABLE'
     | 'ORDER_EXPIRED'
-    | 'ORDER_NOT_OWNED'
     | 'ORDER_CANCELLED'
     | 'ORDER_CONFIRMED'
-    | 'IDEMPOTENCY_KEY_REUSED';
+    | 'IDEMPOTENCY_KEY_REUSED'
+    | 'BUYER_CHANGED';
 
 export interface ProblemDetail {
     type?: string;
@@ -26,6 +26,7 @@ export interface ProblemDetail {
     instance?: string;
     code?: ProblemCode;
     seatIds?: number[];
+    serverTime?: IsoDateTime;
 }
 
 export interface ShowtimeSummary {
@@ -34,24 +35,26 @@ export interface ShowtimeSummary {
     endsAt: IsoDateTime;
     salesOpensAt: IsoDateTime;
     salesClosesAt: IsoDateTime;
+    holdMinutes: number;
     seatKind: SeatKind;
     salesStatus: SalesStatus;
     remaining: number;
     maxSeatsPerBuyer: number;
 }
 
-export interface ShowResponse {
+export interface PerformanceResponse {
     id: number;
     title: string;
     venue: string;
     posterUrl: string | null;
-    holdMinutes: number;
     showtimes: ShowtimeSummary[];
     serverTime: IsoDateTime;
 }
 
 export interface MeResponse {
+    buyerId: string;
     nickname: string;
+    serverTime: IsoDateTime;
 }
 
 export interface AvailabilityResponse {
@@ -69,7 +72,7 @@ export interface CreateOrderRequest {
     buyerName: string;
 }
 
-export interface OrderShow {
+export interface OrderPerformance {
     id: number;
     title: string;
     venue: string;
@@ -84,7 +87,7 @@ export interface OrderShowtime {
 export interface OrderResponse {
     token: string;
     status: OrderStatus;
-    show: OrderShow;
+    performance: OrderPerformance;
     showtime: OrderShowtime;
     quantity: number;
     entryNumbers: number[];
@@ -98,7 +101,7 @@ export interface OrderResponse {
 export interface MyOrderSummary {
     token: string;
     status: OrderStatus;
-    show: OrderShow;
+    performance: OrderPerformance;
     showtime: OrderShowtime;
     quantity: number;
     entryNumbers: number[];

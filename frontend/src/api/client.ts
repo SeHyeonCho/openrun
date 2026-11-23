@@ -3,6 +3,23 @@ import type { ProblemCode, ProblemDetail } from './types';
 
 const TIMEOUT_MS = 10_000;
 
+export const CSRF_COOKIE = 'XSRF-TOKEN';
+export const CSRF_HEADER = 'X-XSRF-TOKEN';
+
+function readCookie(name: string): string | null {
+    const prefix = `${name}=`;
+    const found = document.cookie.split('; ').find((entry) => entry.startsWith(prefix));
+    return found === undefined ? null : decodeURIComponent(found.slice(prefix.length));
+}
+
+function csrfHeaders(method: string): Record<string, string> {
+    if (method === 'GET') {
+        return {};
+    }
+    const token = readCookie(CSRF_COOKIE);
+    return token === null ? {} : { [CSRF_HEADER]: token };
+}
+
 export class ApiError extends Error {
     readonly status: number;
     readonly code: ProblemCode | undefined;
@@ -59,15 +76,17 @@ export async function request<T>(path: string, init: RequestOptions = {}): Promi
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     const aborted = abortedBy(controller.signal);
     const sentAt = Date.now();
+    const method = init.method ?? 'GET';
     try {
         let response: Response;
         try {
             response = await fetch(new URL(`/api${path}`, window.location.href), {
-                method: init.method ?? 'GET',
+                method,
                 credentials: 'include',
                 headers: {
                     Accept: 'application/json',
                     ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+                    ...csrfHeaders(method),
                     ...init.headers,
                 },
                 body: init.body === undefined ? undefined : JSON.stringify(init.body),
@@ -78,7 +97,11 @@ export async function request<T>(path: string, init: RequestOptions = {}): Promi
         }
 
         if (!response.ok) {
-            throw new ApiError(await readProblem(response, aborted));
+            const problem = await readProblem(response, aborted);
+            if (typeof problem.serverTime === 'string') {
+                syncServerTime(problem.serverTime, sentAt, Date.now());
+            }
+            throw new ApiError(problem);
         }
         if (response.status === 204) {
             return undefined as T;

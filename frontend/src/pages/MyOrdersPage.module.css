@@ -41,3 +41,28 @@
     flex-shrink: 0;
     color: var(--color-ink-muted);
 }
+
+.account {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-12);
+}
+
+.logout {
+    flex-shrink: 0;
+    min-height: var(--size-touch-min);
+    padding: 0 var(--space-8);
+    border: 0;
+    background: none;
+    color: var(--color-ink-muted);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.logout:disabled {
+    cursor: default;
+    opacity: 0.5;
+}

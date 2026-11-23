@@ -3,8 +3,8 @@ import styles from './MockPanel.module.css';
 import { currentScenario, isMockLoggedIn, scenarios } from './scenarios';
 
 const shortcuts = [
-    { href: '/shows/1', label: '공연 · 회차 여럿' },
-    { href: '/shows/2', label: '공연 · 회차 하나, 30초 뒤 판매' },
+    { href: '/performances/1', label: '공연 · 회차 여럿' },
+    { href: '/performances/2', label: '공연 · 회차 하나, 30초 뒤 판매' },
     { href: '/orders/held-demo', label: '주문 · 선점 중' },
     { href: '/orders/confirmed-demo', label: '주문 · 확정' },
     { href: '/orders/expired-demo', label: '주문 · 기한 지남' },

@@ -4,6 +4,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { resetServerTime } from '../lib/clock';
 import { handlers } from '../mocks/handlers';
 
+vi.mock('../lib/navigation', () => ({ redirectTo: vi.fn() }));
+
 export const server = setupServer(...handlers);
 
 const TEST_START = new Date('2026-11-10T12:00:00+09:00');

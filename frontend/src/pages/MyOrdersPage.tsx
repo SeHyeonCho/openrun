@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useMe, useMyOrders } from '../api/queries';
 import type { MyOrderSummary } from '../api/types';
-import { useLogin } from '../auth/useLogin';
+import { useLogin, useLogout } from '../auth/useLogin';
 import { Badge } from '../components/Badge';
 import { Header } from '../components/Header';
 import { KakaoLoginButton } from '../components/KakaoLoginButton';
@@ -44,10 +44,33 @@ export function MyOrdersPage() {
     const { orders } = ordersQuery.data;
     return (
         <Page header={header}>
-            <p className="t-caption">{text.owner(me.nickname)}</p>
+            <Account nickname={me.nickname} />
             {orders.length === 0 ? <Notice title={text.empty} body={text.emptyBody} /> : <OrderList orders={orders} />}
             <p className="t-caption">{text.footer}</p>
         </Page>
+    );
+}
+
+function Account({ nickname }: { nickname: string }) {
+    const logout = useLogout();
+    const toast = useToast();
+    const [busy, setBusy] = useState(false);
+    const logoutHere = async () => {
+        setBusy(true);
+        try {
+            await logout();
+        } catch {
+            toast(copy.common.logoutFailed);
+            setBusy(false);
+        }
+    };
+    return (
+        <div className={styles.account}>
+            <p className="t-caption">{copy.myOrdersPage.owner(nickname)}</p>
+            <button type="button" className={styles.logout} onClick={() => void logoutHere()} disabled={busy}>
+                {copy.common.logout}
+            </button>
+        </div>
     );
 }
 
@@ -57,7 +80,7 @@ function OrderList({ orders }: { orders: MyOrderSummary[] }) {
     const noteOf = (order: MyOrderSummary, view: OrderView) => {
         switch (view) {
             case 'held':
-                return note.held(order.quantity, order.entryNumbers, formatCountdown(msUntil(order.heldUntil, now)));
+                return note.held(order.quantity, formatCountdown(msUntil(order.heldUntil, now)));
             case 'confirmed':
                 return note.confirmed(order.quantity, order.entryNumbers);
             case 'expired':
@@ -74,7 +97,7 @@ function OrderList({ orders }: { orders: MyOrderSummary[] }) {
                     <li key={order.token}>
                         <Link to={`/orders/${order.token}`} className={styles.item}>
                             <span className={styles.body}>
-                                <span className={`${styles.title} ${isLatinTitle(order.show.title) ? styles.latin : ''}`}>{order.show.title}</span>
+                                <span className={`${styles.title} ${isLatinTitle(order.performance.title) ? styles.latin : ''}`}>{order.performance.title}</span>
                                 <span className="t-data">{formatShowtime(order.showtime.startsAt, order.showtime.endsAt)}</span>
                                 <span className="t-caption">{noteOf(order, view)}</span>
                             </span>

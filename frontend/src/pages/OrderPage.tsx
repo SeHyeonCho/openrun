@@ -90,7 +90,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         queryClient.setQueryData(queryKeys.order(next.token), next);
         void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
         void queryClient.invalidateQueries({ queryKey: queryKeys.availability(next.showtime.id) });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(next.show.id)) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(next.performance.id)) });
     };
 
     const handleFailure = async (error: unknown) => {
@@ -165,7 +165,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     };
 
     const share = async () => {
-        const result = await shareLink({ title: text.shareTitle(order.show.title), url: orderUrl(order.token) });
+        const result = await shareLink({ title: text.shareTitle(order.performance.title), url: orderUrl(order.token) });
         if (result === 'copied') {
             toast(text.toast.copied);
         } else if (result === 'failed') {
@@ -193,8 +193,8 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         const url = orderUrl(order.token);
         const ics = buildIcs({
             uid: `${order.token}@openrun`,
-            title: order.show.title,
-            location: order.show.venue,
+            title: order.performance.title,
+            location: order.performance.venue,
             startsAt: order.showtime.startsAt,
             endsAt: order.showtime.endsAt,
             url,
@@ -208,8 +208,8 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     };
 
     const closeSheet = useCallback(() => setSheetOpen(false), []);
-    const retryPath = `/shows/${order.show.id}/showtimes/${order.showtime.id}/quantity`;
-    const showPath = `/shows/${order.show.id}`;
+    const retryPath = `/performances/${order.performance.id}/showtimes/${order.showtime.id}/quantity`;
+    const showPath = `/performances/${order.performance.id}`;
     const header = <Header />;
 
     if (!order.isOwner) {
@@ -235,6 +235,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
                     order={order}
                     qr={shownView === 'confirmed' ? 'clear' : shownView === 'held' ? 'dim' : 'none'}
                     qrNote={shownView === 'held' ? text.viewer.qrNote : undefined}
+                    entryPending={shownView === 'held'}
                     qrSize={shownView === 'confirmed' ? 200 : 136}
                 />
             </Page>
@@ -270,7 +271,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
                     </span>
                     <span className="t-caption">{text.held.deadline(formatDateTime(order.heldUntil))}</span>
                 </section>
-                <TicketCard order={order} qr="dim" qrNote={text.held.qrNote} qrSize={160} />
+                <TicketCard order={order} qr="dim" qrNote={text.held.qrNote} qrSize={160} entryPending />
                 {sheetOpen && (
                     <BottomSheet
                         title={text.cancelSheet.title}
@@ -286,7 +287,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
                             </>
                         }
                     >
-                        <p className="t-body">{text.cancelSheet.body(order.entryNumbers)}</p>
+                        <p className="t-body">{text.cancelSheet.body(order.quantity)}</p>
                         <p className="t-caption">{text.cancelSheet.caption(order.quantity)}</p>
                     </BottomSheet>
                 )}
