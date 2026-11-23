@@ -74,7 +74,7 @@ function OrderList({ orders }: { orders: MyOrderSummary[] }) {
                     <li key={order.token}>
                         <Link to={`/orders/${order.token}`} className={styles.item}>
                             <span className={styles.body}>
-                                <span className={`${styles.title} ${isLatinTitle(order.show.title) ? styles.latin : ''}`}>{order.show.title}</span>
+                                <span className={`${styles.title} ${isLatinTitle(order.performance.title) ? styles.latin : ''}`}>{order.performance.title}</span>
                                 <span className="t-data">{formatShowtime(order.showtime.startsAt, order.showtime.endsAt)}</span>
                                 <span className="t-caption">{noteOf(order, view)}</span>
                             </span>

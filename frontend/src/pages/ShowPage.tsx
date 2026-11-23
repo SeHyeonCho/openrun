@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { isNotFound } from '../api/client';
-import { useMe, useShow } from '../api/queries';
-import type { SalesStatus, ShowResponse, ShowtimeSummary } from '../api/types';
+import { useMe, usePerformance } from '../api/queries';
+import type { PerformanceResponse, SalesStatus, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
 import { Badge, type BadgeTone } from '../components/Badge';
 import { BottomBar } from '../components/BottomBar';
@@ -43,30 +43,30 @@ function showtimeNote(showtime: ShowtimeSummary, status: SalesStatus) {
 
 export function ShowPage() {
     const { showId = '' } = useParams();
-    const showQuery = useShow(showId);
+    const performanceQuery = usePerformance(showId);
 
-    if (showQuery.isPending) {
+    if (performanceQuery.isPending) {
         return (
             <Page header={<Header />}>
                 <Loading />
             </Page>
         );
     }
-    if (showQuery.isError) {
+    if (performanceQuery.isError) {
         return (
             <Page header={<Header />}>
-                {isNotFound(showQuery.error) ? (
+                {isNotFound(performanceQuery.error) ? (
                     <Notice title={copy.showPage.notFound} body={copy.showPage.notFoundBody} />
                 ) : (
-                    <LoadError onRetry={() => showQuery.refetch()} />
+                    <LoadError onRetry={() => performanceQuery.refetch()} />
                 )}
             </Page>
         );
     }
-    return <ShowView show={showQuery.data} refetch={showQuery.refetch} />;
+    return <ShowView performance={performanceQuery.data} refetch={performanceQuery.refetch} />;
 }
 
-function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknown }) {
+function ShowView({ performance, refetch }: { performance: PerformanceResponse; refetch: () => unknown }) {
     const text = copy.showPage;
     const navigate = useNavigate();
     const login = useLogin();
@@ -76,12 +76,13 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
     const now = useServerNow();
     const [pickedId, setPickedId] = useState<number | null>(null);
 
-    const single = show.showtimes.length === 1;
-    const selected = show.showtimes.find((s) => s.id === (single ? show.showtimes[0]?.id : pickedId)) ?? null;
+    const single = performance.showtimes.length === 1;
+    const selected = performance.showtimes.find((s) => s.id === (single ? performance.showtimes[0]?.id : pickedId)) ?? null;
     const status = selected ? effectiveSalesStatus(selected, now) : null;
-    const anyBeforeSale = show.showtimes.some((s) => effectiveSalesStatus(s, now) === 'BEFORE_SALE');
-    const openedSinceFetch = show.showtimes.some((s) => s.salesStatus === 'BEFORE_SALE' && hasReached(s.salesOpensAt, now));
-    const limits = new Set(show.showtimes.map((s) => s.maxSeatsPerBuyer));
+    const anyBeforeSale = performance.showtimes.some((s) => effectiveSalesStatus(s, now) === 'BEFORE_SALE');
+    const openedSinceFetch = performance.showtimes.some((s) => s.salesStatus === 'BEFORE_SALE' && hasReached(s.salesOpensAt, now));
+    const limits = new Set(performance.showtimes.map((s) => s.maxSeatsPerBuyer));
+    const holds = new Set(performance.showtimes.map((s) => s.holdMinutes));
 
     useEffect(() => {
         if (openedSinceFetch) {
@@ -93,7 +94,7 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
         if (!selected) {
             return;
         }
-        const quantityPath = `/shows/${show.id}/showtimes/${selected.id}/quantity`;
+        const quantityPath = `/shows/${performance.id}/showtimes/${selected.id}/quantity`;
         if (!loggedOut) {
             navigate(quantityPath);
             return;
@@ -107,7 +108,7 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
 
     const loginHere = async () => {
         try {
-            await login(`/shows/${show.id}`);
+            await login(`/shows/${performance.id}`);
         } catch {
             toast(copy.common.loginFailed);
         }
@@ -149,24 +150,24 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
             }
         >
             <section className={styles.intro}>
-                {show.posterUrl ? (
-                    <img className={styles.poster} src={show.posterUrl} alt={text.posterAlt(show.title)} />
+                {performance.posterUrl ? (
+                    <img className={styles.poster} src={performance.posterUrl} alt={text.posterAlt(performance.title)} />
                 ) : (
                     <div className={styles.poster} aria-hidden="true" />
                 )}
                 <div className={styles.info}>
-                    <h1 className={`${styles.title} ${isLatinTitle(show.title) ? 't-display-title' : 't-title'}`}>{show.title}</h1>
-                    <p className="t-body">{show.venue}</p>
-                    {show.showtimes.length > 0 && (
+                    <h1 className={`${styles.title} ${isLatinTitle(performance.title) ? 't-display-title' : 't-title'}`}>{performance.title}</h1>
+                    <p className="t-body">{performance.venue}</p>
+                    {performance.showtimes.length > 0 && (
                         <p className="t-data">
-                            {single && show.showtimes[0]
-                                ? formatShowtime(show.showtimes[0].startsAt, show.showtimes[0].endsAt, { year: true })
-                                : formatDateSpan(show.showtimes.map((s) => s.startsAt))}
+                            {single && performance.showtimes[0]
+                                ? formatShowtime(performance.showtimes[0].startsAt, performance.showtimes[0].endsAt, { year: true })
+                                : formatDateSpan(performance.showtimes.map((s) => s.startsAt))}
                         </p>
                     )}
                     <p className="t-caption">
-                        {[...new Set(show.showtimes.map((s) => copy.seatKind[s.seatKind]))].join(' · ')}
-                        {single ? '' : ` · ${text.showtimeCount(show.showtimes.length)}`}
+                        {[...new Set(performance.showtimes.map((s) => copy.seatKind[s.seatKind]))].join(' · ')}
+                        {single ? '' : ` · ${text.showtimeCount(performance.showtimes.length)}`}
                     </p>
                 </div>
             </section>
@@ -174,7 +175,7 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
             <section className={styles.section}>
                 <h2 className="t-heading">{text.showtimes}</h2>
                 <ul className={styles.showtimes}>
-                    {show.showtimes.map((showtime) => {
+                    {performance.showtimes.map((showtime) => {
                         const rowStatus = effectiveSalesStatus(showtime, now);
                         return (
                             <li key={showtime.id}>
@@ -217,7 +218,8 @@ function ShowView({ show, refetch }: { show: ShowResponse; refetch: () => unknow
                 <h2 className="t-heading">{text.guide.title}</h2>
                 <ul className={styles.guide}>
                     <li>{text.guide.entry}</li>
-                    <li>{text.guide.hold(show.holdMinutes)}</li>
+                    {holds.size === 1 && <li>{text.guide.hold([...holds][0] ?? 0)}</li>}
+                    {holds.size > 1 && <li>{text.guide.holdPerShowtime}</li>}
                     <li>{limits.size === 1 ? text.guide.limit([...limits][0] ?? 0) : text.guide.limitPerShowtime}</li>
                 </ul>
             </section>

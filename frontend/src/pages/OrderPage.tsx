@@ -90,7 +90,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         queryClient.setQueryData(queryKeys.order(next.token), next);
         void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
         void queryClient.invalidateQueries({ queryKey: queryKeys.availability(next.showtime.id) });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(next.show.id)) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(next.performance.id)) });
     };
 
     const handleFailure = async (error: unknown) => {
@@ -165,7 +165,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     };
 
     const share = async () => {
-        const result = await shareLink({ title: text.shareTitle(order.show.title), url: orderUrl(order.token) });
+        const result = await shareLink({ title: text.shareTitle(order.performance.title), url: orderUrl(order.token) });
         if (result === 'copied') {
             toast(text.toast.copied);
         } else if (result === 'failed') {
@@ -193,8 +193,8 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
         const url = orderUrl(order.token);
         const ics = buildIcs({
             uid: `${order.token}@openrun`,
-            title: order.show.title,
-            location: order.show.venue,
+            title: order.performance.title,
+            location: order.performance.venue,
             startsAt: order.showtime.startsAt,
             endsAt: order.showtime.endsAt,
             url,
@@ -208,8 +208,8 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     };
 
     const closeSheet = useCallback(() => setSheetOpen(false), []);
-    const retryPath = `/shows/${order.show.id}/showtimes/${order.showtime.id}/quantity`;
-    const showPath = `/shows/${order.show.id}`;
+    const retryPath = `/shows/${order.performance.id}/showtimes/${order.showtime.id}/quantity`;
+    const showPath = `/shows/${order.performance.id}`;
     const header = <Header />;
 
     if (!order.isOwner) {

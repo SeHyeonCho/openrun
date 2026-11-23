@@ -1,22 +1,23 @@
 import type { OrderStatus, ProblemCode, SalesStatus } from '../api/types';
 import { currentScenario, type ScenarioId } from './scenarios';
 
-export const MOCK_USER = { id: 'kakao-mock-me', nickname: '밤산책' };
+export const MOCK_USER = { id: 'kakao-mock-me', buyerId: 'b_mockMe7Qm2xK', nickname: '밤산책' };
 const OTHER_USER = 'kakao-mock-other';
 
 export interface MockShowtime {
     id: number;
-    showId: number;
+    performanceId: number;
     startsAt: string;
     endsAt: string;
     salesOpensAt: string;
     salesClosesAt: string;
     capacity: number;
     maxSeatsPerBuyer: number;
+    holdMinutes?: number;
     takenByOthers: number[];
 }
 
-export interface MockShow {
+export interface MockPerformance {
     id: number;
     title: string;
     venue: string;
@@ -39,7 +40,7 @@ export interface MockDb {
     scenario: ScenarioId;
     skewMs: number;
     holdMs: number;
-    shows: MockShow[];
+    performances: MockPerformance[];
     showtimes: MockShowtime[];
     orders: MockOrder[];
     once: Record<string, boolean>;
@@ -52,7 +53,7 @@ export interface IdempotencyRecord {
     code?: ProblemCode;
 }
 
-const DB_KEY = 'openrun.mock.db.v2';
+const DB_KEY = 'openrun.mock.db.v3';
 const MINUTE = 60_000;
 
 const kst = (local: string) => new Date(`${local}:00+09:00`).toISOString();
@@ -70,7 +71,7 @@ export function createDb(scenario: ScenarioId): MockDb {
         scenario,
         skewMs,
         holdMs: scenario === 'short-hold' ? 30_000 : 10 * MINUTE,
-        shows: [
+        performances: [
             {
                 id: 1,
                 title: 'NIGHT SIGNAL',
@@ -89,7 +90,7 @@ export function createDb(scenario: ScenarioId): MockDb {
         showtimes: [
             {
                 id: 11,
-                showId: 1,
+                performanceId: 1,
                 startsAt: kst('2026-12-04T19:30'),
                 endsAt: kst('2026-12-04T21:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
@@ -100,7 +101,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             },
             {
                 id: 12,
-                showId: 1,
+                performanceId: 1,
                 startsAt: kst('2026-12-05T19:00'),
                 endsAt: kst('2026-12-05T21:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
@@ -111,7 +112,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             },
             {
                 id: 13,
-                showId: 1,
+                performanceId: 1,
                 startsAt: kst('2026-12-06T15:00'),
                 endsAt: kst('2026-12-06T17:30'),
                 salesOpensAt: kst('2026-11-01T20:00'),
@@ -122,7 +123,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             },
             {
                 id: 14,
-                showId: 1,
+                performanceId: 1,
                 startsAt: kst('2026-12-06T19:00'),
                 endsAt: kst('2026-12-06T21:30'),
                 salesOpensAt: kst('2026-12-03T20:00'),
@@ -133,7 +134,7 @@ export function createDb(scenario: ScenarioId): MockDb {
             },
             {
                 id: 21,
-                showId: 2,
+                performanceId: 2,
                 startsAt: kst('2026-12-12T18:00'),
                 endsAt: kst('2026-12-12T20:00'),
                 salesOpensAt: iso(Math.ceil((now + 30_000) / 1000) * 1000),
@@ -232,6 +233,10 @@ export function resetDb() {
     } catch {
         // 저장소를 쓸 수 없으면 지울 것도 없다
     }
+}
+
+export function holdMsOf(db: MockDb, showtime: MockShowtime) {
+    return showtime.holdMinutes === undefined ? db.holdMs : showtime.holdMinutes * MINUTE;
 }
 
 export function isLive(order: MockOrder, now: number) {

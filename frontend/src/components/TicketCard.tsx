@@ -18,9 +18,9 @@ export const TicketCard = forwardRef<HTMLElement, TicketCardProps>(function Tick
     return (
         <article ref={ref} aria-label={text.label} className={`${styles.card} ${qr === 'none' ? styles.void : ''}`}>
             <div className={styles.head}>
-                <span className={`${styles.title} ${isLatinTitle(order.show.title) ? styles.latin : ''}`}>{order.show.title}</span>
+                <span className={`${styles.title} ${isLatinTitle(order.performance.title) ? styles.latin : ''}`}>{order.performance.title}</span>
                 <span className="t-data">{formatShowtime(order.showtime.startsAt, order.showtime.endsAt, { year: true })}</span>
-                <span className="t-caption">{order.show.venue}</span>
+                <span className="t-caption">{order.performance.venue}</span>
             </div>
             <div className={styles.divider} aria-hidden="true" />
             <div className={styles.row}>

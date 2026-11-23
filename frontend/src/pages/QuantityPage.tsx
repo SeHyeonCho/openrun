@@ -2,8 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { isApiError, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
-import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, useShow } from '../api/queries';
-import type { AvailabilityResponse, CreateOrderRequest, MeResponse, ShowResponse, ShowtimeSummary } from '../api/types';
+import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, usePerformance } from '../api/queries';
+import type { AvailabilityResponse, CreateOrderRequest, MeResponse, PerformanceResponse, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
 import { BottomBar } from '../components/BottomBar';
 import { Button, ButtonLink } from '../components/Button';
@@ -29,20 +29,20 @@ type Phase = { kind: 'idle' } | { kind: 'holding' } | { kind: 'waitingOpen' } | 
 export function QuantityPage() {
     const { showId = '', showtimeId = '' } = useParams();
     const text = copy.quantityPage;
-    const showQuery = useShow(showId);
+    const performanceQuery = usePerformance(showId);
     const meQuery = useMe();
     const me = meQuery.data ?? null;
-    const showtime = showQuery.data?.showtimes.find((s) => String(s.id) === showtimeId) ?? null;
+    const showtime = performanceQuery.data?.showtimes.find((s) => String(s.id) === showtimeId) ?? null;
     const availabilityQuery = useAvailability(Number(showtimeId), Boolean(me && showtime));
     const header = <Header title={text.title} backTo={`/shows/${showId}`} />;
 
-    if (showQuery.isPending || meQuery.isPending) {
+    if (performanceQuery.isPending || meQuery.isPending) {
         return <Page header={header}><Loading /></Page>;
     }
-    if (showQuery.isError) {
+    if (performanceQuery.isError) {
         return (
             <Page header={header}>
-                {isNotFound(showQuery.error) ? <Notice title={copy.showPage.notFound} body={copy.showPage.notFoundBody} /> : <LoadError onRetry={() => showQuery.refetch()} />}
+                {isNotFound(performanceQuery.error) ? <Notice title={copy.showPage.notFound} body={copy.showPage.notFoundBody} /> : <LoadError onRetry={() => performanceQuery.refetch()} />}
             </Page>
         );
     }
@@ -61,7 +61,7 @@ export function QuantityPage() {
     if (availabilityQuery.isError) {
         return <Page header={header}><LoadError onRetry={() => availabilityQuery.refetch()} /></Page>;
     }
-    return <QuantityForm header={header} show={showQuery.data} showtime={showtime} me={me} availability={availabilityQuery.data} />;
+    return <QuantityForm header={header} performance={performanceQuery.data} showtime={showtime} me={me} availability={availabilityQuery.data} />;
 }
 
 function LoginRequired({ header }: { header: ReactNode }) {
@@ -88,13 +88,13 @@ function LoginRequired({ header }: { header: ReactNode }) {
 
 type FormProps = {
     header: ReactNode;
-    show: ShowResponse;
+    performance: PerformanceResponse;
     showtime: ShowtimeSummary;
     me: MeResponse;
     availability: AvailabilityResponse;
 };
 
-function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
+function QuantityForm({ header, performance, showtime, me, availability }: FormProps) {
     const text = copy.quantityPage;
     const navigate = useNavigate();
     const location = useLocation();
@@ -159,7 +159,7 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
             queryClient.setQueryData(queryKeys.order(order.token), order);
             void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtime.id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(show.id)) });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(performance.id)) });
             if (!unmounted.current) {
                 navigate(`/orders/${order.token}`);
             }
@@ -199,7 +199,7 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
             if (isApiError(error, 'SALES_CLOSED')) {
                 toast(text.problem.SALES_CLOSED);
                 setPhase({ kind: 'closed' });
-                void queryClient.invalidateQueries({ queryKey: queryKeys.show(String(show.id)) });
+                void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(performance.id)) });
                 return;
             }
             if (isApiError(error, 'SEAT_NOT_AVAILABLE') || isApiError(error, 'SEAT_LIMIT_EXCEEDED')) {
@@ -222,8 +222,8 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
     };
 
     const showWhen = formatShowtime(showtime.startsAt, showtime.endsAt);
-    const summary = <ShowSummary title={show.title} when={showWhen} where={`${show.venue} · ${copy.seatKind[showtime.seatKind]}`} />;
-    const backToShow = `/shows/${show.id}`;
+    const summary = <ShowSummary title={performance.title} when={showWhen} where={`${performance.venue} · ${copy.seatKind[showtime.seatKind]}`} />;
+    const backToShow = `/shows/${performance.id}`;
 
     if (phase.kind === 'unknown') {
         const unknown = text.unknown;
@@ -285,7 +285,7 @@ function QuantityForm({ header, show, showtime, me, availability }: FormProps) {
     );
 
     return (
-        <Page header={header} bottomBar={<BottomBar note={text.holdNote(show.holdMinutes)}>{cta}</BottomBar>}>
+        <Page header={header} bottomBar={<BottomBar note={text.holdNote(showtime.holdMinutes)}>{cta}</BottomBar>}>
             {summary}
             <section className={styles.section}>
                 <div className={styles.row}>

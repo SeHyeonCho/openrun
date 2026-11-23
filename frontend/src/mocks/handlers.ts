@@ -8,10 +8,11 @@ import type {
     MyOrdersResponse,
     OrderResponse,
     ProblemCode,
-    ShowResponse,
+    PerformanceResponse,
 } from '../api/types';
 import {
     assignNumbers,
+    holdMsOf,
     isLive,
     loadDb,
     MOCK_USER,
@@ -58,13 +59,15 @@ function firstTime(db: MockDb, key: string) {
 
 const serverTime = (db: MockDb) => new Date(mockNow(db)).toISOString();
 
+const meView = (db: MockDb): MeResponse => ({ buyerId: MOCK_USER.buyerId, nickname: MOCK_USER.nickname, serverTime: serverTime(db) });
+
 export function orderView(db: MockDb, order: MockOrder): OrderResponse {
     const showtime = db.showtimes.find((s) => s.id === order.showtimeId)!;
-    const show = db.shows.find((s) => s.id === showtime.showId)!;
+    const performance = db.performances.find((p) => p.id === showtime.performanceId)!;
     return {
         token: order.token,
         status: order.status,
-        show: { id: show.id, title: show.title, venue: show.venue },
+        performance: { id: performance.id, title: performance.title, venue: performance.venue },
         showtime: { id: showtime.id, startsAt: showtime.startsAt, endsAt: showtime.endsAt },
         quantity: order.entryNumbers.length,
         entryNumbers: order.entryNumbers,
@@ -84,7 +87,7 @@ export const handlers = [
     http.post('/api/auth/mock-login', async () => {
         await slowDown();
         setMockLoggedIn(true);
-        return HttpResponse.json<MeResponse>({ nickname: MOCK_USER.nickname });
+        return HttpResponse.json<MeResponse>(meView(loadDb()));
     }),
 
     http.post('/api/auth/logout', async () => {
@@ -98,24 +101,23 @@ export const handlers = [
         if (!isMockLoggedIn()) {
             return problem(401);
         }
-        return HttpResponse.json<MeResponse>({ nickname: MOCK_USER.nickname });
+        return HttpResponse.json<MeResponse>(meView(loadDb()));
     }),
 
-    http.get('/api/shows/:showId', async ({ params }) => {
+    http.get('/api/performances/:performanceId', async ({ params }) => {
         await slowDown();
         const db = loadDb();
-        const show = db.shows.find((s) => String(s.id) === params.showId);
-        if (!show) {
+        const performance = db.performances.find((p) => String(p.id) === params.performanceId);
+        if (!performance) {
             return problem(404);
         }
         const now = mockNow(db);
-        return HttpResponse.json<ShowResponse>({
-            id: show.id,
-            title: show.title,
-            venue: show.venue,
-            posterUrl: show.posterUrl,
-            holdMinutes: Math.round(db.holdMs / 60_000) || 1,
-            showtimes: show.showtimeIds.map((id) => {
+        return HttpResponse.json<PerformanceResponse>({
+            id: performance.id,
+            title: performance.title,
+            venue: performance.venue,
+            posterUrl: performance.posterUrl,
+            showtimes: performance.showtimeIds.map((id) => {
                 const st = db.showtimes.find((s) => s.id === id)!;
                 return {
                     id: st.id,
@@ -123,7 +125,8 @@ export const handlers = [
                     endsAt: st.endsAt,
                     salesOpensAt: st.salesOpensAt,
                     salesClosesAt: st.salesClosesAt,
-                    seatKind: 'FREE',
+                    holdMinutes: Math.round(holdMsOf(db, st) / 60_000) || 1,
+                    seatKind: 'GENERAL',
                     salesStatus: salesStatusOf(db, st, now),
                     remaining: remainingOf(db, st, now),
                     maxSeatsPerBuyer: st.maxSeatsPerBuyer,
@@ -252,7 +255,7 @@ export const handlers = [
             buyerName,
             entryNumbers: assignNumbers(db, st, quantity, now),
             status: 'HELD',
-            heldUntil: new Date(now + db.holdMs).toISOString(),
+            heldUntil: new Date(now + holdMsOf(db, st)).toISOString(),
             createdAt: new Date(now).toISOString(),
         };
         db.orders.push(order);
@@ -350,7 +353,7 @@ export const handlers = [
                 return {
                     token: view.token,
                     status: view.status,
-                    show: view.show,
+                    performance: view.performance,
                     showtime: view.showtime,
                     quantity: view.quantity,
                     entryNumbers: view.entryNumbers,

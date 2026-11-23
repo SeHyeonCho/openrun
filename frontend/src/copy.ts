@@ -19,7 +19,7 @@ export const copy = {
         kakao: '카카오 로그인',
         note: '따로 가입하지 않아요. 카카오 계정의 닉네임만 받아요.',
     },
-    seatKind: { FREE: '자유석', RESERVED: '지정석' } satisfies Record<SeatKind, string>,
+    seatKind: { GENERAL: '자유석', RESERVED: '지정석' } satisfies Record<SeatKind, string>,
     salesStatus: {
         BEFORE_SALE: '판매 전',
         ON_SALE: '판매 중',
@@ -52,6 +52,7 @@ export const copy = {
             title: '예매 안내',
             entry: '입장번호는 남은 번호 가운데 앞 번호부터 자동으로 배정돼요.',
             hold: (minutes: number) => `매수를 고른 뒤 ${minutes}분 안에 예매를 확정하지 않으면 표가 다시 풀려요.`,
+            holdPerShowtime: '예매를 확정할 수 있는 시간은 회차마다 달라요. 매수를 고를 때 알려 드려요.',
             limit: (max: number) => `한 회차에서 1인 최대 ${max}매까지 가질 수 있어요.`,
             limitPerShowtime: '1인 최대 매수는 회차마다 따로 세요.',
         },
