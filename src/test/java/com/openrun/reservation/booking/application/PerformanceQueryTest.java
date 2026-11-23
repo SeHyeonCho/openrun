@@ -120,6 +120,32 @@ class PerformanceQueryTest {
         assertThat(response.serverTime()).isEqualTo(SALES_OPEN_AT);
     }
 
+    @Test
+    @DisplayName("가진 좌석 수는 이 구매자의 이 회차 확정 좌석과 기한 안 선점 좌석만 세고, 기한 지난 선점·취소·다른 구매자·다른 회차는 세지 않는다")
+    void ownedCountCountsOnlyActiveSeatsOfBuyerInShowtime() {
+        Performance performance = savePerformance();
+        Showtime showtime = saveGeneralShowtime(performance, STARTS_AT, 8);
+        Showtime other = saveGeneralShowtime(performance, STARTS_AT.plus(Duration.ofDays(1)), 2);
+
+        clock.setInstant(SALES_OPEN_AT);
+        holdOne(showtime, 1L);
+        clock.setInstant(SALES_OPEN_AT.plus(Duration.ofMinutes(1)));
+        orderService.confirm(1L, holdOne(showtime, 1L));
+        holdOne(showtime, 1L);
+        orderService.cancel(1L, holdOne(showtime, 1L));
+        holdOne(showtime, 2L);
+        holdOne(other, 1L);
+        clock.setInstant(SALES_OPEN_AT.plus(Duration.ofMinutes(HOLD_MINUTES)));
+
+        AvailabilityResponse availability = performanceQueryService.availability(showtime.getId(), 1L);
+
+        assertThat(availability.ownedCount()).isEqualTo(2);
+        assertThat(availability.remaining()).isEqualTo(5);
+        assertThat(availability.salesStatus()).isEqualTo(SalesStatus.ON_SALE);
+        assertThat(availability.maxSeatsPerBuyer()).isEqualTo(4);
+        assertThat(availability.serverTime()).isEqualTo(SALES_OPEN_AT.plus(Duration.ofMinutes(HOLD_MINUTES)));
+    }
+
     private int countSeats(Showtime showtime, String status) {
         return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM seat WHERE showtime_id = ? AND status = ?",
                 Integer.class, showtime.getId(), status);

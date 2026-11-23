@@ -1,5 +1,6 @@
 package com.openrun.reservation.booking.application;
 
+import com.openrun.reservation.booking.domain.OrderSeatRepository;
 import com.openrun.reservation.booking.domain.Performance;
 import com.openrun.reservation.booking.domain.PerformanceRepository;
 import com.openrun.reservation.booking.domain.SeatRepository;
@@ -23,6 +24,7 @@ public class PerformanceQueryService {
     private final PerformanceRepository performanceRepository;
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
+    private final OrderSeatRepository orderSeatRepository;
     private final Clock clock;
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -37,5 +39,18 @@ public class PerformanceQueryService {
                         .stream()
                         .collect(Collectors.toMap(ShowtimeRemaining::showtimeId, ShowtimeRemaining::remaining));
         return PerformanceResponse.of(performance, showtimes, remaining, now);
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public AvailabilityResponse availability(Long showtimeId, Long buyerId) {
+        Showtime showtime = showtimeRepository.findById(showtimeId)
+                .orElseThrow(() -> new ShowtimeNotFoundException(showtimeId));
+        Instant now = clock.instant();
+        long remaining = seatRepository.countRemainingByShowtimeIds(List.of(showtimeId), now).stream()
+                .mapToLong(ShowtimeRemaining::remaining)
+                .sum();
+        long ownedCount = orderSeatRepository.countActiveSeats(showtimeId, buyerId, now);
+        return new AvailabilityResponse(showtimeId, showtime.salesStatusAt(now, remaining), remaining,
+                showtime.getMaxSeatsPerUser(), ownedCount, now);
     }
 }

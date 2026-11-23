@@ -24,6 +24,7 @@ public class SecurityConfig {
             throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(HttpMethod.GET, "/api/showtimes/*/availability").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/showtimes/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/performances/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/orders/*").permitAll()
