@@ -19,10 +19,10 @@ public class SeatQueryService {
 
     @Transactional(readOnly = true)
     public ShowtimeSeatsResponse getSeats(Long showtimeId) {
+        Instant now = clock.instant();
         if (!showtimeRepository.existsById(showtimeId)) {
             throw new ShowtimeNotFoundException(showtimeId);
         }
-        Instant now = clock.instant();
         List<SeatResponse> seats = seatRepository.findByShowtimeIdOrderByIdAsc(showtimeId).stream()
                 .map(seat -> SeatResponse.of(seat, now))
                 .toList();

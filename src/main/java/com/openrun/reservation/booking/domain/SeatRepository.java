@@ -28,4 +28,15 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
             """, nativeQuery = true)
     List<Seat> findHoldableGeneralSeatsForUpdate(@Param("showtimeId") Long showtimeId, @Param("now") Instant now,
             @Param("count") int count);
+
+    @Query("""
+            select new com.openrun.reservation.booking.domain.ShowtimeRemaining(s.showtime.id, count(s))
+            from Seat s
+            where s.showtime.id in :showtimeIds
+              and (s.status = com.openrun.reservation.booking.domain.SeatStatus.AVAILABLE
+                or (s.status = com.openrun.reservation.booking.domain.SeatStatus.HELD and s.heldUntil <= :now))
+            group by s.showtime.id
+            """)
+    List<ShowtimeRemaining> countRemainingByShowtimeIds(@Param("showtimeIds") List<Long> showtimeIds,
+            @Param("now") Instant now);
 }
