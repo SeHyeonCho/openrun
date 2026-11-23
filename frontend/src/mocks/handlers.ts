@@ -1,4 +1,5 @@
 import { delay, http, HttpResponse } from 'msw';
+import { CSRF_COOKIE, CSRF_HEADER } from '../api/client';
 import { IDEMPOTENCY_HEADER } from '../api/queries';
 import type {
     AvailabilityResponse,
@@ -31,6 +32,7 @@ import { currentScenario, isMockLoggedIn, setMockLoggedIn } from './scenarios';
 const titles: Record<number, string> = {
     400: 'Bad Request',
     401: 'Unauthorized',
+    403: 'Forbidden',
     404: 'Not Found',
     409: 'Conflict',
     422: 'Unprocessable Content',
@@ -43,11 +45,16 @@ function problem(status: number, code?: ProblemCode, detail?: string) {
     );
 }
 
-async function slowDown() {
+const MOCK_CSRF_TOKEN = 'mock-csrf-token';
+
+async function receive() {
+    document.cookie = `${CSRF_COOKIE}=${MOCK_CSRF_TOKEN}; path=/`;
     if (currentScenario() === 'slow') {
         await delay(2000);
     }
 }
+
+const csrfRejected = (request: Request) => request.headers.get(CSRF_HEADER) !== MOCK_CSRF_TOKEN;
 
 function firstTime(db: MockDb, key: string) {
     if (db.once[key]) {
@@ -87,19 +94,22 @@ function findOwnOrder(db: MockDb, token: string) {
 
 export const handlers = [
     http.post('/api/auth/mock-login', async () => {
-        await slowDown();
+        await receive();
         setMockLoggedIn(true);
         return HttpResponse.json<MeResponse>(meView(loadDb()));
     }),
 
-    http.post('/api/logout', async () => {
-        await slowDown();
+    http.post('/api/logout', async ({ request }) => {
+        await receive();
+        if (csrfRejected(request)) {
+            return problem(403);
+        }
         setMockLoggedIn(false);
         return new HttpResponse(null, { status: 204 });
     }),
 
     http.get('/api/me', async () => {
-        await slowDown();
+        await receive();
         if (!isMockLoggedIn()) {
             return problem(401);
         }
@@ -107,7 +117,7 @@ export const handlers = [
     }),
 
     http.get('/api/performances/:performanceId', async ({ params }) => {
-        await slowDown();
+        await receive();
         const db = loadDb();
         const performance = db.performances.find((p) => String(p.id) === params.performanceId);
         if (!performance) {
@@ -139,7 +149,7 @@ export const handlers = [
     }),
 
     http.get('/api/showtimes/:showtimeId/availability', async ({ params }) => {
-        await slowDown();
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
@@ -162,10 +172,13 @@ export const handlers = [
     http.post('/api/orders', async ({ request }) => {
         const body = ((await request.json().catch(() => null)) ?? {}) as Partial<CreateOrderRequest>;
         const key = request.headers.get(IDEMPOTENCY_HEADER);
-        await slowDown();
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
+        }
+        if (csrfRejected(request)) {
+            return problem(403);
         }
         if (!key) {
             return problem(400, undefined, '선점 요청에는 Idempotency-Key가 필요하다');
@@ -276,7 +289,7 @@ export const handlers = [
     }),
 
     http.get('/api/orders/:token', async ({ params }) => {
-        await slowDown();
+        await receive();
         const db = loadDb();
         const order = db.orders.find((o) => o.token === params.token);
         if (!order) {
@@ -285,11 +298,14 @@ export const handlers = [
         return HttpResponse.json<OrderResponse>(orderView(db, order));
     }),
 
-    http.post('/api/orders/:token/confirm', async ({ params }) => {
-        await slowDown();
+    http.post('/api/orders/:token/confirm', async ({ params, request }) => {
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
+        }
+        if (csrfRejected(request)) {
+            return problem(403);
         }
         const order = findOwnOrder(db, String(params.token));
         if (!order) {
@@ -323,11 +339,14 @@ export const handlers = [
         return HttpResponse.json<OrderResponse>(orderView(db, order));
     }),
 
-    http.post('/api/orders/:token/cancel', async ({ params }) => {
-        await slowDown();
+    http.post('/api/orders/:token/cancel', async ({ params, request }) => {
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);
+        }
+        if (csrfRejected(request)) {
+            return problem(403);
         }
         const order = findOwnOrder(db, String(params.token));
         if (!order) {
@@ -351,7 +370,7 @@ export const handlers = [
     }),
 
     http.get('/api/me/orders', async () => {
-        await slowDown();
+        await receive();
         const db = loadDb();
         if (!isMockLoggedIn()) {
             return problem(401);

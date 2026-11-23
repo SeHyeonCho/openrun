@@ -1,7 +1,30 @@
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/setup';
-import { NoResponseError, request } from './client';
+import { CSRF_HEADER, NoResponseError, request } from './client';
+
+describe('CSRF 토큰', () => {
+    it('상태를 바꾸는 요청에는 XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 담고, 조회에는 담지 않는다', async () => {
+        const sent: Record<string, string | null> = {};
+        server.use(
+            http.get('/api/probe', ({ request: received }) => {
+                sent.get = received.headers.get(CSRF_HEADER);
+                return HttpResponse.json({});
+            }),
+            http.post('/api/probe', ({ request: received }) => {
+                sent.post = received.headers.get(CSRF_HEADER);
+                return HttpResponse.json({});
+            }),
+        );
+        document.cookie = 'XSRF-TOKEN=token%2Fvalue; path=/';
+
+        await request('/probe');
+        await request('/probe', { method: 'POST' });
+
+        expect(sent.get).toBeNull();
+        expect(sent.post).toBe('token/value');
+    });
+});
 
 describe('요청 시간 제한', () => {
     afterEach(() => {

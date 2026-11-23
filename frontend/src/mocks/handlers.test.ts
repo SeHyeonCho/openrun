@@ -6,12 +6,13 @@ import { setMockLoggedIn, storeScenario, type ScenarioId } from './scenarios';
 
 const request = { showtimeId: 12, quantity: 1, buyerName: '밤산책' };
 
-const prepare = (scenario: ScenarioId = 'default') => {
+const prepare = async (scenario: ScenarioId = 'default') => {
     storeScenario(scenario);
     setMockLoggedIn(true);
     const db = loadDb();
     db.orders = db.orders.filter((o) => o.token !== 'held-demo');
     saveDb(db);
+    await api.getMe();
 };
 
 const rejection = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => error as ApiError);
@@ -20,6 +21,19 @@ const myOrderCount = () => loadDb().orders.filter((o) => o.ownerId === MOCK_USER
 
 describe('목 API', () => {
     beforeEach(() => prepare());
+
+    it('CSRF 토큰 헤더가 없는 POST는 서버처럼 403으로 거부하고 주문을 만들지 않는다', async () => {
+        const before = myOrderCount();
+
+        const response = await fetch(new URL('/api/orders', window.location.href), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
+            body: JSON.stringify(request),
+        });
+
+        expect(response.status).toBe(403);
+        expect(myOrderCount()).toBe(before);
+    });
 
     it('선점 요청이 겹쳐도 서로의 주문을 덮어쓰지 않고, 선점한 주문에는 입장번호를 주지 않는다', async () => {
         const [first, second] = await Promise.all([api.createOrder(request, crypto.randomUUID()), api.createOrder(request, crypto.randomUUID())]);
@@ -89,7 +103,7 @@ describe('목 API', () => {
     });
 
     it('규칙 위반(409)도 기억해서, 같은 식별자로 다시 보내면 같은 거부를 돌려준다', async () => {
-        prepare('sales-not-open-once');
+        await prepare('sales-not-open-once');
         const key = crypto.randomUUID();
 
         const first = await rejection(api.createOrder(request, key));
