@@ -18,7 +18,7 @@ import { useToast } from '../components/Toast';
 import { copy } from '../copy';
 import { formatCountdown, msUntil, serverNow } from '../lib/clock';
 import { formatShowtime } from '../lib/format';
-import { removeHoldRequest, saveHoldRequest, type StoredHoldRequest } from '../lib/holdRequestStore';
+import { findHoldRequest, hasOtherBuyerHoldRequest, removeHoldRequest, saveHoldRequest, type StoredHoldRequest } from '../lib/holdRequestStore';
 import { effectiveSalesStatus } from '../lib/sales';
 import { useServerNow } from '../lib/useServerNow';
 import styles from './QuantityPage.module.css';
@@ -135,6 +135,9 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
     const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const pending = useRef<StoredHoldRequest | null>(null);
+    const [stored] = useState(() => findHoldRequest(me.buyerId, showtime.id));
+    const [otherBuyerPending] = useState(() => stored === null && hasOtherBuyerHoldRequest(me.buyerId, showtime.id));
+    const rechecked = useRef(false);
 
     const unmounted = useRef(false);
 
@@ -145,6 +148,15 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
             clearTimeout(retryTimer.current);
         };
     }, []);
+
+    useEffect(() => {
+        if (stored === null || rechecked.current) {
+            return;
+        }
+        rechecked.current = true;
+        pending.current = stored;
+        void send(0, 0, true);
+    }, [stored]);
 
     const { remaining, maxSeatsPerBuyer: max, ownedCount: owned } = availability;
     const limit = Math.max(0, Math.min(remaining, max - owned));
@@ -172,12 +184,12 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         void send(0, 0);
     };
 
-    const send = async (notOpenAttempt: number, resendCount: number) => {
+    const send = async (notOpenAttempt: number, resendCount: number, recheck = false) => {
         const request = pending.current;
         if (!request) {
             return;
         }
-        setPhase({ kind: resendCount > 0 ? 'resending' : 'holding' });
+        setPhase({ kind: resendCount > 0 || recheck ? 'resending' : 'holding' });
         try {
             const order = await api.createOrder(request.body, request.key, request.buyerId);
             pending.current = null;
@@ -331,6 +343,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     return (
         <Page header={header} bottomBar={<BottomBar note={text.holdNote(showtime.holdMinutes)}>{cta}</BottomBar>}>
             {summary}
+            {otherBuyerPending && <Notice title={text.otherBuyerPending.title} body={text.otherBuyerPending.body} variant="outlined" />}
             <section className={styles.section}>
                 <div className={styles.row}>
                     <h2 className="t-heading">{text.quantity}</h2>

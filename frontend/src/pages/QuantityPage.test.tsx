@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
-import { findHoldRequest } from '../lib/holdRequestStore';
+import { findHoldRequest, saveHoldRequest } from '../lib/holdRequestStore';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
 import { disabled, finishKakaoLogin, renderRoute } from '../test/render';
 import { server } from '../test/setup';
@@ -249,6 +249,37 @@ describe('수량 선택', () => {
         expect(storedHold()?.key).toBe(sentKeys[0]);
         expect(storedHold()?.body).toEqual({ showtimeId: 12, quantity: 1, buyerName: '밤산책' });
     }, 10_000);
+
+    it('선점 응답을 받지 못한 채 새로고침해도, 화면을 다시 열면 같은 식별자로 결과를 확인해 주문은 하나만 생긴다', async () => {
+        const first = renderRoute(PATH, { scenario: 'hold-lost-created', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await screen.findByRole('button', { name: '결과를 확인하는 중' });
+        first.unmount();
+        expect(sentKeys).toHaveLength(1);
+
+        const { router } = renderRoute(PATH, { scenario: 'hold-lost-created', loggedIn: true });
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        expect(sentKeys).toHaveLength(2);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(myHeldOrders()).toHaveLength(1);
+        expect(storedHold()).toBeNull();
+    });
+
+    it('이 회차에 다른 계정이 보관한 요청만 있으면 보내지 않고 그 계정으로 확인하라고 안내하며, 이 계정으로는 예매할 수 있다', async () => {
+        saveHoldRequest({
+            key: crypto.randomUUID(),
+            body: { showtimeId: 12, quantity: 2, buyerName: '새벽달' },
+            buyerId: 'b_someoneElse',
+            createdAt: new Date().toISOString(),
+        });
+        renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        expect(await screen.findByRole('heading', { name: '다른 계정으로 시작한 예매가 있어요' })).toBeTruthy();
+        expect(disabled(screen.getByRole('button', { name: '1매 선택 완료' }))).toBe(false);
+        expect(sentKeys).toHaveLength(0);
+    });
 
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {
         const view = renderRoute(PATH);
