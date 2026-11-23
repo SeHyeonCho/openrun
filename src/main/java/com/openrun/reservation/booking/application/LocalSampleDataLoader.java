@@ -7,6 +7,7 @@ import com.openrun.reservation.booking.domain.SeatRepository;
 import com.openrun.reservation.booking.domain.SeatType;
 import com.openrun.reservation.booking.domain.Showtime;
 import com.openrun.reservation.booking.domain.ShowtimeRepository;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -32,15 +33,17 @@ public class LocalSampleDataLoader implements ApplicationRunner {
     private final PerformanceRepository performanceRepository;
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
+    private final Clock clock;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (performanceRepository.count() > 0) {
+        if (showtimeRepository.existsBySalesCloseAtAfter(clock.instant())) {
             return;
         }
-        Performance performance = performanceRepository.save(Performance.create("샘플 밴드 단독 공연", "샘플 라이브홀", SAMPLE_POSTER_URL));
-        Instant salesOpenAt = Instant.now().truncatedTo(ChronoUnit.HOURS);
+        Performance performance = performanceRepository.save(
+                Performance.create("샘플 밴드 단독 공연", "샘플 라이브홀", SAMPLE_POSTER_URL));
+        Instant salesOpenAt = clock.instant().truncatedTo(ChronoUnit.HOURS);
         Instant firstDay = salesOpenAt.plus(Duration.ofDays(14));
         Instant secondDay = firstDay.plus(Duration.ofDays(1));
 
