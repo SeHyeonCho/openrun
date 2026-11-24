@@ -34,7 +34,7 @@
 ## 🛠 기술 스택
 
 - Java 21, Spring Boot 4
-- MySQL 8, Redis (Redisson)
+- MySQL 8
 - Gradle, Docker Compose
 
 ## 🚀 로컬 실행
@@ -44,7 +44,7 @@
 cp .env.example .env
 # 필요하면 .env 안의 값(비밀번호·포트)을 수정하고, 카카오 앱 키(KAKAO_CLIENT_ID, KAKAO_CLIENT_SECRET)를 채운다
 
-# 2. 인프라(MySQL · Redis) 띄우기
+# 2. 인프라(MySQL) 띄우기
 docker compose up -d
 
 # 3. IDE에서 애플리케이션 실행
@@ -52,7 +52,7 @@ docker compose up -d
 - `.env`는 필수다. 없으면 앱이 시작 단계에서 실패한다.
 - 카카오 앱 키는 Kakao Developers에서 앱을 만들고 카카오 로그인을 켠 뒤 받는다. 동의 항목은 닉네임만 쓰고, Redirect URI에 `http://localhost:8080/login/oauth2/code/kakao`를 등록한다. 구매자 화면 개발 서버(`frontend/`)를 거쳐 로그인하려면 `http://localhost:5173/login/oauth2/code/kakao`도 등록한다. 키가 비어 있으면 앱이 시작 단계에서 실패한다.
 - 실행 프로필 지정: IDE 실행 구성의 Active profiles에 `local`을 지정해야 한다. (또는 VM 옵션 `-Dspring.profiles.active=local`)
-- DB·Redis는 Docker로 띄우고, 애플리케이션은 IDE에서 직접 실행한다.
+- DB는 Docker로 띄우고, 애플리케이션은 IDE에서 직접 실행한다.
 - 종료: `docker compose down`
 - Git 훅 활성화: 클론한 뒤 `git config core.hooksPath .githooks`를 한 번 실행한다. 커밋 메시지 형식과 브랜치 이름을 검사한다.
 

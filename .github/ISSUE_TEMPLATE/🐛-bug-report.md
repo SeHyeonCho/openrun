@@ -17,5 +17,5 @@ assignees: SeHyeonCho
 <!-- 원래 어떻게 동작해야 하나 -->
  
 ## 🖥 환경
-- Spring Boot 4.1.0 / Java 21 / MySQL 8 / Redis 7
+- Spring Boot 4.1.0 / Java 21 / MySQL 8
 ## 📎 참고 (로그 · 스크린샷)

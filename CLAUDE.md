@@ -5,8 +5,8 @@
 ## 기술 스택
 
 - Java 21, Spring Boot 4.1, Gradle
-- MySQL 8.4, Redis 7, Redisson 4.5.0 (Spring BOM이 관리하지 않으므로 버전을 직접 명시한다)
-- 로컬 인프라(MySQL, Redis)는 Docker Compose로 띄우고, 애플리케이션은 IDE에서 실행한다
+- MySQL 8.4. Redis는 쓰는 단계(가상 대기열, 서버 여러 대)에서 그때 맞는 클라이언트와 함께 넣는다
+- 로컬 인프라(MySQL)는 Docker Compose로 띄우고, 애플리케이션은 IDE에서 실행한다
 - 구매자 화면: TypeScript, React, Vite, React Router, React Query, MSW(목 API), Vitest. `frontend/`에 있다
 
 ## 명령어
@@ -14,7 +14,7 @@
 - 인프라 기동 / 종료: `docker compose up -d` / `docker compose down`
 - 빌드: `./gradlew build` (테스트를 포함하므로 아래 테스트와 같은 조건이 필요하다)
 - 테스트: `./gradlew test`
-  - 테스트는 Testcontainers로 띄운 MySQL·Redis에서 실행된다. Docker가 켜져 있어야 하고, `.env`와 Compose 컨테이너는 필요 없다
+  - 테스트는 Testcontainers로 띄운 MySQL에서 실행된다. Docker가 켜져 있어야 하고, `.env`와 Compose 컨테이너는 필요 없다
   - 여러 스레드가 커밋하는 테스트는 끝날 때 `DatabaseCleaner`로 데이터를 지운다
 - 로컬 실행: `./gradlew bootRun --args='--spring.profiles.active=local'`
 - 구매자 화면(`frontend/`): `npm ci` 후 `npm run dev`(목 API), `npm test`, `npm run build`. 자세한 내용은 `frontend/README.md`
@@ -113,7 +113,7 @@ type은 아래 여섯 개만 쓴다. 이슈 제목, 브랜치, 커밋, PR 제목
 
 마일스톤은 아래 다섯 가지를 모두 채워야 닫는다. 각 PR은 자신에게 해당하는 항목을 PR 본문의 `🏁 완성도` 섹션에 적는다.
 
-1. 테스트: 동시성 테스트와 실제 MySQL·Redis를 띄운 통합 테스트
+1. 테스트: 동시성 테스트와 실제 MySQL(그 단계에서 쓰는 다른 저장소 포함)을 띄운 통합 테스트
 2. 측정: 같은 조건의 k6 부하 테스트로 적용 전후 수치 비교
 3. 실패 시나리오: 정상 경로뿐 아니라 실패할 때의 동작(만료 경합, 타임아웃, Redis 장애 등)
 4. 관측: 그 현상이 메트릭·대시보드에서 보인다
