@@ -52,9 +52,11 @@ OpenRun이 지키려는 것은 입금 대기부터 환불까지 좌석과 돈의
 
 ## 🛠 기술 스택
 
-- Java 21, Spring Boot 4
-- MySQL 8
-- Gradle, Docker Compose
+- 서버: Java 21, Spring Boot 4.1, Spring Data JPA, Spring Security(카카오 로그인)
+- DB: MySQL 8.4, Flyway
+- 구매자 화면: TypeScript, React, Vite, React Query. 서버 없이도 MSW 목 API로 띄운다
+- 테스트: JUnit, Testcontainers(MySQL), Vitest
+- 빌드와 로컬 인프라: Gradle, Docker Compose
 
 ## 🚀 로컬 실행
 
@@ -66,12 +68,20 @@ cp .env.example .env
 # 2. 인프라(MySQL) 띄우기
 docker compose up -d
 
-# 3. IDE에서 애플리케이션 실행
+# 3. 애플리케이션 실행 (IDE에서 실행해도 된다)
+./gradlew bootRun --args='--spring.profiles.active=local'
+
+# 4. 구매자 화면 실행 (다른 터미널에서)
+cd frontend
+npm ci
+VITE_API_MOCK=false npm run dev   # http://localhost:5173, 위 서버에 붙는다
 ```
 - `.env`는 필수다. 없으면 앱이 시작 단계에서 실패한다.
 - 카카오 앱 키는 Kakao Developers에서 앱을 만들고 카카오 로그인을 켠 뒤 받는다. 동의 항목은 닉네임만 쓰고, Redirect URI에 `http://localhost:8080/login/oauth2/code/kakao`를 등록한다. 구매자 화면 개발 서버(`frontend/`)를 거쳐 로그인하려면 `http://localhost:5173/login/oauth2/code/kakao`도 등록한다. 키가 비어 있으면 앱이 시작 단계에서 실패한다.
-- 실행 프로필 지정: IDE 실행 구성의 Active profiles에 `local`을 지정해야 한다. (또는 VM 옵션 `-Dspring.profiles.active=local`)
-- DB는 Docker로 띄우고, 애플리케이션은 IDE에서 직접 실행한다.
+- IDE에서 실행하려면 실행 구성의 Active profiles에 `local`을 지정한다. (또는 VM 옵션 `-Dspring.profiles.active=local`) 로컬 프로필은 판매 기간 안의 회차가 하나도 없으면 시작할 때 샘플 공연과 회차를 만든다.
+- DB는 Docker로 띄우고, 애플리케이션은 Docker 밖에서 실행한다.
+- 구매자 화면은 `npm run dev`만 쓰면 서버 없이 목 API로 뜬다. Node 버전과 목 API 시나리오는 [frontend/README.md](frontend/README.md)에 있다.
+- 테스트: `./gradlew test`는 Testcontainers로 MySQL을 띄우므로 Docker만 켜져 있으면 되고 `.env`는 필요 없다. 화면 테스트는 `frontend/`에서 `npm test`.
 - 종료: `docker compose down`
 - Git 훅 활성화: 클론한 뒤 `git config core.hooksPath .githooks`를 한 번 실행한다. 커밋 메시지 형식과 브랜치 이름을 검사한다.
 
