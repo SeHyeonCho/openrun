@@ -16,6 +16,12 @@ spring:
       hibernate:
         format_sql: true
 
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
 logging:
   level:
     org.hibernate.SQL: debug

@@ -4,6 +4,7 @@ import com.openrun.reservation.buyer.application.KakaoOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Clock;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,7 +23,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, KakaoOAuth2UserService kakaoOAuth2UserService,
-            Clock clock) throws Exception {
+            Clock clock, @Value("${server.servlet.session.cookie.secure}") boolean secureCookies) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, "/api/showtimes/*/availability").authenticated()
@@ -31,7 +32,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/orders/*").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
-                .csrf(csrf -> csrf.spa().csrfTokenRepository(csrfTokenRepository()))
+                .csrf(csrf -> csrf.spa().csrfTokenRepository(csrfTokenRepository(secureCookies)))
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .oauth2Login(login -> login
                         .userInfoEndpoint(userInfo -> userInfo.userService(kakaoOAuth2UserService))
@@ -48,9 +49,9 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private CookieCsrfTokenRepository csrfTokenRepository() {
+    private CookieCsrfTokenRepository csrfTokenRepository(boolean secure) {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        repository.setCookieCustomizer(cookie -> cookie.secure(true).sameSite("Lax"));
+        repository.setCookieCustomizer(cookie -> cookie.secure(secure).sameSite("Lax"));
         return repository;
     }
 
