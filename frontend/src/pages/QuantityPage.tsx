@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { isApiError, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
+import { ApiError, isApiError, isForbidden, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
 import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, usePerformance } from '../api/queries';
-import type { AvailabilityResponse, CreateOrderRequest, MeResponse, PerformanceResponse, ShowtimeSummary } from '../api/types';
+import type { AvailabilityResponse, MeResponse, PerformanceResponse, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
 import { BottomBar } from '../components/BottomBar';
 import { Button, ButtonLink } from '../components/Button';
@@ -16,14 +16,34 @@ import { ShowSummary } from '../components/ShowSummary';
 import { Stepper } from '../components/Stepper';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy';
-import { formatCountdown, msUntil } from '../lib/clock';
+import { formatCountdown, msUntil, serverNow } from '../lib/clock';
 import { formatShowtime } from '../lib/format';
+import {
+    findHoldRequest,
+    hasOtherBuyerHoldRequest,
+    isPastResendLimit,
+    removeHoldRequest,
+    saveHoldRequest,
+    type StoredHoldRequest,
+} from '../lib/holdRequestStore';
 import { effectiveSalesStatus } from '../lib/sales';
 import { useServerNow } from '../lib/useServerNow';
 import styles from './QuantityPage.module.css';
 
 const NOT_OPEN_RETRY_MS = 1_500;
 const NOT_OPEN_MAX_RETRIES = 5;
+
+const CONCLUDED_STATUSES = new Set([400, 404, 409, 422]);
+
+const isConcluded = (error: unknown) =>
+    error instanceof ApiError && CONCLUDED_STATUSES.has(error.status) && error.code !== 'BUYER_CHANGED';
+
+const newHoldRequest = (body: StoredHoldRequest['body'], buyerId: string): StoredHoldRequest => ({
+    key: newIdempotencyKey(),
+    body,
+    buyerId,
+    createdAt: new Date(serverNow()).toISOString(),
+});
 type Phase =
     | { kind: 'idle' }
     | { kind: 'holding' }
@@ -31,7 +51,8 @@ type Phase =
     | { kind: 'resending' }
     | { kind: 'unknown' }
     | { kind: 'closed' }
-    | { kind: 'buyerChanged' };
+    | { kind: 'buyerChanged' }
+    | { kind: 'pastResendLimit' };
 
 export function QuantityPage() {
     const { performanceId = '', showtimeId = '' } = useParams();
@@ -75,7 +96,16 @@ export function QuantityPage() {
     if (availabilityQuery.isError) {
         return <Page header={header}><LoadError onRetry={() => availabilityQuery.refetch()} /></Page>;
     }
-    return <QuantityForm header={header} performance={performanceQuery.data} showtime={showtime} me={me} availability={availabilityQuery.data} />;
+    return (
+        <QuantityForm
+            key={`${me.buyerId}:${showtime.id}`}
+            header={header}
+            performance={performanceQuery.data}
+            showtime={showtime}
+            me={me}
+            availability={availabilityQuery.data}
+        />
+    );
 }
 
 function LoginRequired({ header }: { header: ReactNode }) {
@@ -121,7 +151,10 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     const [buyerName, setBuyerName] = useState(me.nickname);
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
     const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    const pending = useRef<{ key: string; body: CreateOrderRequest; buyerId: string } | null>(null);
+    const pending = useRef<StoredHoldRequest | null>(null);
+    const [stored] = useState(() => findHoldRequest(me.buyerId, showtime.id));
+    const [otherBuyerPending] = useState(() => stored === null && hasOtherBuyerHoldRequest(me.buyerId, showtime.id));
+    const rechecked = useRef(false);
 
     const unmounted = useRef(false);
 
@@ -132,6 +165,15 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
             clearTimeout(retryTimer.current);
         };
     }, []);
+
+    useEffect(() => {
+        if (stored === null || rechecked.current) {
+            return;
+        }
+        rechecked.current = true;
+        pending.current = stored;
+        void send(0, 0, true);
+    }, [stored]);
 
     const { remaining, maxSeatsPerBuyer: max, ownedCount: owned } = availability;
     const limit = Math.max(0, Math.min(remaining, max - owned));
@@ -154,20 +196,23 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     };
 
     const hold = () => {
-        pending.current = {
-            key: newIdempotencyKey(),
-            body: { showtimeId: showtime.id, quantity: chosen, buyerName: buyerName.trim() },
-            buyerId: me.buyerId,
-        };
+        pending.current = newHoldRequest({ showtimeId: showtime.id, quantity: chosen, buyerName: buyerName.trim() }, me.buyerId);
+        saveHoldRequest(pending.current);
         void send(0, 0);
     };
 
-    const send = async (notOpenAttempt: number, resendCount: number) => {
+    const send = async (notOpenAttempt: number, resendCount: number, recheck = false) => {
         const request = pending.current;
         if (!request) {
             return;
         }
-        setPhase({ kind: resendCount > 0 ? 'resending' : 'holding' });
+        if (isPastResendLimit(request, serverNow())) {
+            pending.current = null;
+            removeHoldRequest(request);
+            setPhase({ kind: 'pastResendLimit' });
+            return;
+        }
+        setPhase({ kind: resendCount > 0 || recheck ? 'resending' : 'holding' });
         try {
             const order = await api.createOrder(request.body, request.key, request.buyerId);
             pending.current = null;
@@ -176,11 +221,15 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
             void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
             void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(performance.id)) });
             if (!unmounted.current) {
+                removeHoldRequest(request);
                 navigate(`/orders/${order.token}`);
             }
         } catch (error) {
             if (unmounted.current) {
                 return;
+            }
+            if (isConcluded(error)) {
+                removeHoldRequest(request);
             }
             if (isUnknownResult(error)) {
                 if (resendCount < RESEND_DELAYS_MS.length) {
@@ -189,6 +238,18 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
                     return;
                 }
                 setPhase({ kind: 'unknown' });
+                return;
+            }
+            if (isForbidden(error)) {
+                if (resendCount >= RESEND_DELAYS_MS.length) {
+                    setPhase({ kind: 'unknown' });
+                    return;
+                }
+                setPhase({ kind: 'resending' });
+                await api.getMe().catch(() => undefined);
+                if (!unmounted.current) {
+                    void send(notOpenAttempt, resendCount + 1);
+                }
                 return;
             }
             if (isApiError(error, 'BUYER_CHANGED')) {
@@ -206,7 +267,8 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
                     toast(text.problem.SALES_NOT_OPEN);
                     setPhase({ kind: 'waitingOpen' });
                     retryTimer.current = setTimeout(() => {
-                        pending.current = { ...request, key: newIdempotencyKey() };
+                        pending.current = newHoldRequest(request.body, request.buyerId);
+                        saveHoldRequest(pending.current);
                         void send(notOpenAttempt + 1, 0);
                     }, NOT_OPEN_RETRY_MS);
                     return;
@@ -264,6 +326,16 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
         );
     }
 
+    if (phase.kind === 'pastResendLimit') {
+        const past = text.pastResendLimit;
+        return (
+            <Page header={header} bottomBar={<BottomBar><ButtonLink to="/me/orders">{past.toMyOrders}</ButtonLink></BottomBar>}>
+                {summary}
+                <Notice title={past.title} body={past.body} variant="outlined" centered live />
+            </Page>
+        );
+    }
+
     if (phase.kind === 'buyerChanged') {
         const changed = text.buyerChanged;
         return (
@@ -316,6 +388,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     return (
         <Page header={header} bottomBar={<BottomBar note={text.holdNote(showtime.holdMinutes)}>{cta}</BottomBar>}>
             {summary}
+            {otherBuyerPending && <Notice title={text.otherBuyerPending.title} body={text.otherBuyerPending.body} variant="outlined" />}
             <section className={styles.section}>
                 <div className={styles.row}>
                     <h2 className="t-heading">{text.quantity}</h2>

@@ -1,7 +1,9 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EXPECTED_BUYER_HEADER, IDEMPOTENCY_HEADER } from '../api/queries';
+import { findHoldRequest, HOLD_REQUEST_RESEND_LIMIT_MS, saveHoldRequest } from '../lib/holdRequestStore';
+import { redirectTo } from '../lib/navigation';
 import { loadDb, MOCK_USER, type MockDb } from '../mocks/db';
 import { disabled, finishKakaoLogin, renderRoute } from '../test/render';
 import { server } from '../test/setup';
@@ -18,6 +20,8 @@ server.events.on('request:start', ({ request }) => {
 });
 
 const myHeldOrders = () => loadDb().orders.filter((o) => o.ownerId === MOCK_USER.id && o.showtimeId === 12 && o.status === 'HELD');
+
+const storedHold = () => findHoldRequest(MOCK_USER.buyerId, 12);
 
 const withoutOwnHold = (db: MockDb) => {
     db.orders.find((o) => o.token === 'held-demo')!.status = 'CANCELLED';
@@ -93,6 +97,7 @@ describe('수량 선택', () => {
         hold(2);
 
         await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        expect(storedHold()).toBeNull();
     });
 
     it('선점 요청에 로그인한 구매자의 buyerId를 Expected-Buyer-Id 헤더로 담는다', async () => {
@@ -115,6 +120,7 @@ describe('수량 선택', () => {
         await new Promise((resolve) => setTimeout(resolve, 1_500));
         expect(sentKeys).toHaveLength(1);
         expect(myHeldOrders()).toHaveLength(0);
+        expect(storedHold()?.key).toBe(sentKeys[0]);
     });
 
     it('고르는 사이 남은 수가 줄면 새 남은 수를 알리고 수량을 줄인다', async () => {
@@ -126,6 +132,7 @@ describe('수량 선택', () => {
         expect(await screen.findByText('고르는 사이 잔여석이 줄었어요. 지금 잔여석은 2석이에요.')).toBeTruthy();
         expect(screen.getByText('잔여석에 맞춰 3매에서 2매로 줄였어요.')).toBeTruthy();
         expect(screen.getByRole('button', { name: '2매 선택 완료' })).toBeTruthy();
+        expect(storedHold()).toBeNull();
     });
 
     it('고르는 사이 매진되면 매진 안내와 다른 회차 보기를 보여 준다', async () => {
@@ -240,6 +247,188 @@ describe('수량 선택', () => {
         expect(sentKeys).toHaveLength(3);
         expect(new Set(sentKeys).size).toBe(1);
         expect(myHeldOrders()).toHaveLength(1);
+        expect(storedHold()?.key).toBe(sentKeys[0]);
+        expect(storedHold()?.body).toEqual({ showtimeId: 12, quantity: 1, buyerName: '밤산책' });
+    }, 10_000);
+
+    it('선점 응답을 받지 못한 채 새로고침해도, 화면을 다시 열면 같은 식별자로 결과를 확인해 주문은 하나만 생긴다', async () => {
+        const first = renderRoute(PATH, { scenario: 'hold-lost-created', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await screen.findByRole('button', { name: '결과를 확인하는 중' });
+        first.unmount();
+        expect(sentKeys).toHaveLength(1);
+
+        const { router } = renderRoute(PATH, { scenario: 'hold-lost-created', loggedIn: true });
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        expect(sentKeys).toHaveLength(2);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(myHeldOrders()).toHaveLength(1);
+        expect(storedHold()).toBeNull();
+    });
+
+    it('이 회차에 다른 계정이 보관한 요청만 있으면 보내지 않고 그 계정으로 확인하라고 안내하며, 이 계정으로는 예매할 수 있다', async () => {
+        saveHoldRequest({
+            key: crypto.randomUUID(),
+            body: { showtimeId: 12, quantity: 2, buyerName: '새벽달' },
+            buyerId: 'b_someoneElse',
+            createdAt: new Date().toISOString(),
+        });
+        renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        expect(await screen.findByRole('heading', { name: '다른 계정으로 시작한 예매가 있어요' })).toBeTruthy();
+        expect(disabled(screen.getByRole('button', { name: '1매 선택 완료' }))).toBe(false);
+        expect(sentKeys).toHaveLength(0);
+    });
+
+    it('선점이 401이면 보관한 요청을 두고 로그인으로 가고, 같은 계정으로 돌아오면 같은 식별자로 결과를 확인한다', async () => {
+        const view = renderRoute(PATH, { scenario: 'hold-unauthorized-once', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await waitFor(() => expect(redirectTo).toHaveBeenCalledWith('/oauth2/authorization/kakao'));
+        expect(storedHold()?.key).toBe(sentKeys[0]);
+
+        const { router } = finishKakaoLogin(view, { scenario: 'hold-unauthorized-once' });
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        expect(sentKeys).toHaveLength(2);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(myHeldOrders()).toHaveLength(1);
+        expect(storedHold()).toBeNull();
+    });
+
+    it('선점이 401이고 다른 계정으로 로그인해 돌아오면 보관한 요청을 보내지 않고 원래 계정으로 확인하라고 안내한다', async () => {
+        const view = renderRoute(PATH, { scenario: 'hold-unauthorized-once', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await waitFor(() => expect(redirectTo).toHaveBeenCalledWith('/oauth2/authorization/kakao'));
+        server.use(
+            http.get('/api/me', () => HttpResponse.json({ buyerId: 'b_anotherAccount', nickname: '새벽달', serverTime: new Date().toISOString() })),
+        );
+
+        finishKakaoLogin(view, { scenario: 'hold-unauthorized-once' });
+
+        expect(await screen.findByRole('heading', { name: '다른 계정으로 시작한 예매가 있어요' })).toBeTruthy();
+        expect(sentKeys).toHaveLength(1);
+        expect(storedHold()?.key).toBe(sentKeys[0]);
+    });
+
+    it('선점이 403이면 GET /api/me로 CSRF 쿠키를 다시 받은 뒤 같은 식별자로 다시 보낸다', async () => {
+        const paths: string[] = [];
+        const record = ({ request }: { request: Request }) => paths.push(`${request.method} ${new URL(request.url).pathname}`);
+        server.events.on('request:start', record);
+        const { router } = renderRoute(PATH, { scenario: 'hold-csrf-once', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        server.events.removeListener('request:start', record);
+        const firstHold = paths.indexOf('POST /api/orders');
+        expect(paths.slice(firstHold + 1)).toContain('GET /api/me');
+        expect(paths.indexOf('GET /api/me', firstHold)).toBeLessThan(paths.lastIndexOf('POST /api/orders'));
+        expect(sentKeys).toHaveLength(2);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(myHeldOrders()).toHaveLength(1);
+    });
+
+    it('403이 계속되면 다시 보내기 횟수만큼만 같은 식별자로 보내고, 결과를 확인하지 못했다고 안내하며 요청을 남겨 둔다', async () => {
+        renderRoute(PATH, { scenario: 'hold-csrf-always', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' })).toBeTruthy();
+        expect(sentKeys).toHaveLength(3);
+        expect(new Set(sentKeys).size).toBe(1);
+        expect(storedHold()?.key).toBe(sentKeys[0]);
+    });
+
+    it('화면을 열 때 보관한 지 23시간이 지난 요청은 보내지 않고 버린 뒤 예매 내역에서 확인하게 한다', async () => {
+        saveHoldRequest({
+            key: crypto.randomUUID(),
+            body: { showtimeId: 12, quantity: 1, buyerName: '밤산책' },
+            buyerId: MOCK_USER.buyerId,
+            createdAt: new Date(Date.now() - HOLD_REQUEST_RESEND_LIMIT_MS - 60_000).toISOString(),
+        });
+        renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 여기서 확인할 수 없어요' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: '예매 내역에서 확인' }).getAttribute('href')).toBe('/me/orders');
+        expect(sentKeys).toHaveLength(0);
+        expect(storedHold()).toBeNull();
+    });
+
+    it('보관한 지 23시간이 되기 전이면 화면을 열 때 같은 식별자로 결과를 확인한다', async () => {
+        const key = crypto.randomUUID();
+        saveHoldRequest({
+            key,
+            body: { showtimeId: 12, quantity: 1, buyerName: '밤산책' },
+            buyerId: MOCK_USER.buyerId,
+            createdAt: new Date(Date.now() - HOLD_REQUEST_RESEND_LIMIT_MS + 60_000).toISOString(),
+        });
+        const { router } = renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+
+        await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\/[0-9a-f]{32}$/));
+        expect(sentKeys).toEqual([key]);
+    });
+
+    it('결과를 모르는 채 23시간이 지난 뒤 다시 시도를 누르면 보내지 않고 예매 내역에서 확인하게 한다', async () => {
+        renderRoute(PATH, { scenario: 'hold-lost-always', loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' }, { timeout: 5_000 });
+        expect(sentKeys).toHaveLength(3);
+
+        vi.setSystemTime(Date.now() + HOLD_REQUEST_RESEND_LIMIT_MS);
+        fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 여기서 확인할 수 없어요' })).toBeTruthy();
+        expect(sentKeys).toHaveLength(3);
+        expect(storedHold()).toBeNull();
+    }, 10_000);
+
+    it('같은 화면에서 회차가 바뀌면 바뀐 회차에 보관한 요청을 다시 확인한다', async () => {
+        const { router } = renderRoute('/performances/1/showtimes/14/quantity', { loggedIn: true, prepare: withoutOwnHold });
+        await screen.findByRole('button', { name: /판매 시작까지/ });
+        await router.navigate(PATH);
+        await screen.findByRole('button', { name: '1매 선택 완료' });
+        const key = crypto.randomUUID();
+        saveHoldRequest({
+            key,
+            body: { showtimeId: 14, quantity: 1, buyerName: '밤산책' },
+            buyerId: MOCK_USER.buyerId,
+            createdAt: new Date().toISOString(),
+        });
+
+        await router.navigate('/performances/1/showtimes/14/quantity');
+
+        await waitFor(() => expect(sentKeys).toContain(key));
+    });
+
+    it('화면을 떠난 뒤 받은 선점 응답은, 다시 연 화면이 확인 중인 보관 요청을 지우지 않는다', async () => {
+        let holdRequests = 0;
+        server.use(
+            http.post('/api/orders', async () => {
+                holdRequests += 1;
+                if (holdRequests === 1) {
+                    await delay(1_500);
+                    return undefined;
+                }
+                return HttpResponse.error();
+            }),
+        );
+        const first = renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
+        await pick(1);
+        hold(1);
+        await waitFor(() => expect(sentKeys).toHaveLength(1));
+        const key = sentKeys[0];
+        first.unmount();
+
+        renderRoute(PATH, { loggedIn: true });
+
+        expect(await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' }, { timeout: 6_000 })).toBeTruthy();
+        expect(holdRequests).toBe(4);
+        expect(storedHold()?.key).toBe(key);
     }, 10_000);
 
     it('로그인하지 않았으면 카카오 로그인을 먼저 하게 하고, 로그인하면 이 화면으로 돌아온다', async () => {

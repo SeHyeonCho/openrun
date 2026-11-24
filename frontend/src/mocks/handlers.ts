@@ -181,10 +181,18 @@ export const handlers = [
         const key = request.headers.get(IDEMPOTENCY_HEADER);
         await receive();
         const db = loadDb();
+        if (db.scenario === 'hold-unauthorized-once' && firstTime(db, 'hold')) {
+            saveDb(db);
+            setMockLoggedIn(false);
+        }
         if (!isMockLoggedIn()) {
             return problem(401);
         }
         if (csrfRejected(request)) {
+            return problem(403);
+        }
+        if (db.scenario === 'hold-csrf-always' || (db.scenario === 'hold-csrf-once' && firstTime(db, 'hold'))) {
+            saveDb(db);
             return problem(403);
         }
         if (!key) {
