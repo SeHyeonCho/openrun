@@ -39,10 +39,15 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
    - 이번 확인에서 새로 켠 서비스도 그사이 잠금 밖의 세션이 쓰기 시작했을 수 있어, 끄기 전에 서비스 목록을 보여 주고 사용자에게 묻는다. 승인받은 서비스만 `docker compose stop <서비스>`로 끈다
    - 마지막에 `rmdir /tmp/openrun-bootrun.lock`으로 잠금을 푼다. 확인이 중간에 실패해도 서비스를 정리한 뒤 잠금을 푼다
 6. `.github/pull_request_template.md`를 읽고 본문을 채운다.
+   - 쓰기 전에 직전에 머지한 PR 본문을 `gh pr view <번호> --json body --jq .body`로 꺼내 섹션 모양을 맞춘다. 본문을 고치거나 줄인 뒤에도 다시 대조한다
    - `📌 관련 이슈`: `Closes #<번호>`
    - `✨ 변경 사항`: `git diff main...HEAD`를 기준으로 무엇이 바뀌었는지 요약한다. 커밋 목록을 그대로 옮기지 않는다
    - `🧪 테스트 증명`: 4·5번에서 실제로 실행한 명령과 결과만 적는다. 빌드 출력 블록 다음은 CLAUDE.md의 순서를 따른다(CI 링크 → 테스트 수와 이번에 추가한 것 → 테스트별 상세 → `bootRun` 같은 수동 확인 → 출력에서 다듬은 부분). 테스트 수는 `build/test-results/test/*.xml`에서 센다. CI 링크는 PR을 연 뒤 빌드가 끝나면 넣는다
+     - 빌드 출력 블록은 `$ ./gradlew build --rerun-tasks` 다음에 `> Task :compileJava`, `:bootJar`, `:compileTestJava`, `:test`, `:build` 다섯 줄과 `BUILD SUCCESSFUL in Ns`, `N actionable tasks: N executed`를 둔다. 줄이지 않는다
+     - `frontend/`를 바꾼 PR은 같은 블록에서 서버 빌드 앞에 `$ cd frontend && npm ci && npm test && npm run build`의 테스트 수와 빌드 결과를 둔다
    - `⚡ 성능 · 동시성`: 락·트랜잭션·공유 자원 변경이 없으면 섹션을 삭제한다. 있으면 실제로 확인한 항목만 체크하고, 측정하지 않은 수치 칸은 비워 둔다
+     - 제목에 "(해당 시)"를 남기지 않는다. 체크 세 개 다음에 지표 표를 두고, 처리량·p99 칸은 측정하기 전까지 비운다. 초과 판매는 동시성 테스트로 확인했으면 `0 | 0`으로 적고, 표 아래에 "처리량과 지연은 P1에서 k6로 측정한다. 초과 판매 0은 동시성 테스트 결과다."를 둔다
+   - 본문을 줄여 달라는 요청은 상세 목록과 결정 개수 같은 내용을 줄이라는 뜻이다. 빌드 블록, 테스트 증명 순서, 성능 표 같은 고정된 모양은 그대로 둔다
    - `🏁 완성도`: CLAUDE.md의 마일스톤 완료 기준 중 이 PR이 실제로 채운 항목만 남긴다. 실패 시나리오는 어떤 경우를 검증했는지 구체적으로 적는다
    - `💭 결정 · 고민 사항`: 선택한 방식, 이유, 버린 대안
    - `✅ 체크리스트`: 실제로 확인한 항목만 체크한다
