@@ -48,7 +48,7 @@ describe('내 주문', () => {
     it('로그인하지 않았으면 로그인을 먼저 하게 하고, 로그인하면 목록을 보여 준다', async () => {
         const view = renderRoute('/me/orders');
 
-        expect(await screen.findByRole('heading', { name: '로그인하면 예매 내역을 볼 수 있어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '로그인하면 예매한 공연을 볼 수 있어요' })).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: '카카오 로그인' }));
         finishKakaoLogin(view);
 
@@ -60,7 +60,7 @@ describe('내 주문', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: '로그아웃' }));
 
-        expect(await screen.findByRole('heading', { name: '로그인하면 예매 내역을 볼 수 있어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '로그인하면 예매한 공연을 볼 수 있어요' })).toBeTruthy();
         expect(isMockLoggedIn()).toBe(false);
         expect(screen.queryByRole('link', { name: /NIGHT SIGNAL/ })).toBeNull();
     });

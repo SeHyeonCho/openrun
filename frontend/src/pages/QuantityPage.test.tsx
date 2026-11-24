@@ -42,12 +42,12 @@ describe('수량 선택', () => {
         sentBuyers.length = 0;
     });
 
-    it('1인 최대 좌석 수에서 이미 가진 수를 뺀 만큼까지만 고를 수 있다', async () => {
+    it('회차당 1인 매수에서 이미 예매한 매수를 뺀 만큼까지만 고를 수 있다', async () => {
         renderRoute(PATH, { loggedIn: true });
 
         await pick(3);
 
-        expect(screen.getByText('1인 최대 4매 · 이미 가진 수 2매 · 지금 2매까지 고를 수 있어요.')).toBeTruthy();
+        expect(screen.getByText('회차당 1인 4매 · 이미 예매한 2매 · 지금 2매까지 고를 수 있어요.')).toBeTruthy();
         expect(disabled(screen.getByRole('button', { name: '한 장 더하기' }))).toBe(true);
         expect(screen.getByRole('button', { name: '2매 선택 완료' })).toBeTruthy();
     });
@@ -109,14 +109,14 @@ describe('수량 선택', () => {
         await waitFor(() => expect(sentBuyers).toEqual([MOCK_USER.buyerId]));
     });
 
-    it('그사이 다른 계정으로 로그인돼 BUYER_CHANGED를 받으면 다시 보내지 않고, 예매를 시작한 계정으로 예매 내역에서 확인하라고 안내한다', async () => {
+    it('그사이 다른 계정으로 로그인돼 BUYER_CHANGED를 받으면 다시 보내지 않고, 예매를 시작한 계정으로 예매확인에서 확인하라고 안내한다', async () => {
         renderRoute(PATH, { scenario: 'buyer-changed', loggedIn: true, prepare: withoutOwnHold });
 
         await screen.findByRole('button', { name: '1매 선택 완료' });
         hold(1);
 
         expect(await screen.findByRole('heading', { name: '다른 계정으로 로그인돼 있어요' })).toBeTruthy();
-        expect(screen.getByRole('link', { name: '예매 내역 보기' }).getAttribute('href')).toBe('/me/orders');
+        expect(screen.getByRole('link', { name: '예매확인으로' }).getAttribute('href')).toBe('/me/orders');
         await new Promise((resolve) => setTimeout(resolve, 1_500));
         expect(sentKeys).toHaveLength(1);
         expect(myHeldOrders()).toHaveLength(0);
@@ -146,33 +146,33 @@ describe('수량 선택', () => {
         expect(screen.getByRole('link', { name: '다른 회차 보기' }).getAttribute('href')).toBe('/performances/1');
     });
 
-    it('1인 최대 좌석 수를 넘으면 한도와 이미 가진 수를 알리고 수량을 줄인다', async () => {
+    it('회차당 1인 매수를 넘으면 한도와 이미 예매한 매수를 알리고 수량을 줄인다', async () => {
         renderRoute(PATH, { scenario: 'seat-limit', loggedIn: true, prepare: withoutOwnHold });
 
         await pick(2);
         hold(2);
 
-        expect(await screen.findByText('1인 최대 4매예요. 이미 3매를 가지고 있어요.')).toBeTruthy();
+        expect(await screen.findByText('회차당 1인 4매까지예요. 이미 3매를 예매했어요.')).toBeTruthy();
         expect(await screen.findByRole('button', { name: '1매 선택 완료' })).toBeTruthy();
     });
 
-    it('판매가 끝났으면 판매 마감 안내와 공연 페이지로 가는 버튼을 보여 준다', async () => {
+    it('판매가 끝났으면 판매 종료 안내와 공연 페이지로 가는 버튼을 보여 준다', async () => {
         renderRoute(PATH, { scenario: 'sales-closed', loggedIn: true });
 
         await pick(1);
         hold(1);
 
-        expect(await screen.findByRole('heading', { name: '이 회차는 판매가 끝났어요' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '이 회차는 판매가 종료됐어요' })).toBeTruthy();
         expect(screen.getByRole('link', { name: '공연 페이지로' })).toBeTruthy();
     });
 
-    it('서버가 아직 판매 전이라고 답하면 잠시 뒤 자동으로 다시 선점한다', async () => {
+    it('서버가 아직 티켓 오픈 전이라고 답하면 잠시 뒤 자동으로 다시 선점한다', async () => {
         const { router } = renderRoute(PATH, { scenario: 'sales-not-open-once', loggedIn: true });
 
         await pick(1);
         hold(1);
 
-        expect(await screen.findByText('아직 판매 전이에요. 잠시 뒤 다시 시도할게요.')).toBeTruthy();
+        expect(await screen.findByText('아직 티켓 오픈 전이에요. 잠시 뒤 다시 시도할게요.')).toBeTruthy();
         await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/orders\//), { timeout: 4_000 });
         expect(sentKeys).toHaveLength(2);
         expect(sentKeys[0]).not.toBe(sentKeys[1]);
@@ -234,7 +234,7 @@ describe('수량 선택', () => {
         expect(router.state.location.pathname).toBe('/me/orders');
     }, 5_000);
 
-    it('다시 보내는 동안 선점 버튼을 막고, 정해진 횟수 뒤에도 결과를 모르면 예매 내역에서 확인하게 한다', async () => {
+    it('다시 보내는 동안 선점 버튼을 막고, 정해진 횟수 뒤에도 결과를 모르면 예매확인에서 확인하게 한다', async () => {
         renderRoute(PATH, { scenario: 'hold-lost-always', loggedIn: true, prepare: withoutOwnHold });
 
         await pick(1);
@@ -243,7 +243,7 @@ describe('수량 선택', () => {
         const resending = await screen.findByRole('button', { name: '결과를 확인하는 중' });
         expect(disabled(resending)).toBe(true);
         expect(await screen.findByRole('heading', { name: '예매 결과를 확인하지 못했어요' }, { timeout: 5_000 })).toBeTruthy();
-        expect(screen.getByRole('link', { name: '예매 내역에서 확인' }).getAttribute('href')).toBe('/me/orders');
+        expect(screen.getByRole('link', { name: '예매확인에서 확인' }).getAttribute('href')).toBe('/me/orders');
         expect(sentKeys).toHaveLength(3);
         expect(new Set(sentKeys).size).toBe(1);
         expect(myHeldOrders()).toHaveLength(1);
@@ -343,7 +343,7 @@ describe('수량 선택', () => {
         expect(storedHold()?.key).toBe(sentKeys[0]);
     });
 
-    it('화면을 열 때 보관한 지 23시간이 지난 요청은 보내지 않고 버린 뒤 예매 내역에서 확인하게 한다', async () => {
+    it('화면을 열 때 보관한 지 23시간이 지난 요청은 보내지 않고 버린 뒤 예매확인에서 확인하게 한다', async () => {
         saveHoldRequest({
             key: crypto.randomUUID(),
             body: { showtimeId: 12, quantity: 1, buyerName: '밤산책' },
@@ -353,7 +353,7 @@ describe('수량 선택', () => {
         renderRoute(PATH, { loggedIn: true, prepare: withoutOwnHold });
 
         expect(await screen.findByRole('heading', { name: '예매 결과를 여기서 확인할 수 없어요' })).toBeTruthy();
-        expect(screen.getByRole('link', { name: '예매 내역에서 확인' }).getAttribute('href')).toBe('/me/orders');
+        expect(screen.getByRole('link', { name: '예매확인에서 확인' }).getAttribute('href')).toBe('/me/orders');
         expect(sentKeys).toHaveLength(0);
         expect(storedHold()).toBeNull();
     });
@@ -372,7 +372,7 @@ describe('수량 선택', () => {
         expect(sentKeys).toEqual([key]);
     });
 
-    it('결과를 모르는 채 23시간이 지난 뒤 다시 시도를 누르면 보내지 않고 예매 내역에서 확인하게 한다', async () => {
+    it('결과를 모르는 채 23시간이 지난 뒤 다시 시도를 누르면 보내지 않고 예매확인에서 확인하게 한다', async () => {
         renderRoute(PATH, { scenario: 'hold-lost-always', loggedIn: true, prepare: withoutOwnHold });
         await pick(1);
         hold(1);
@@ -389,7 +389,7 @@ describe('수량 선택', () => {
 
     it('같은 화면에서 회차가 바뀌면 바뀐 회차에 보관한 요청을 다시 확인한다', async () => {
         const { router } = renderRoute('/performances/1/showtimes/14/quantity', { loggedIn: true, prepare: withoutOwnHold });
-        await screen.findByRole('button', { name: /판매 시작까지/ });
+        await screen.findByRole('button', { name: /티켓 오픈까지/ });
         await router.navigate(PATH);
         await screen.findByRole('button', { name: '1매 선택 완료' });
         const key = crypto.randomUUID();

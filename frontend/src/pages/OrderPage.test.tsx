@@ -259,13 +259,13 @@ describe('주문 화면', () => {
         expect(confirmRequests).toBe(2);
     });
 
-    it('정해진 횟수만큼 다시 보내도 확정 결과를 모르면 예매 내역에서 확인하라고 알리고 주문을 다시 불러온다', async () => {
+    it('정해진 횟수만큼 다시 보내도 확정 결과를 모르면 예매확인에서 확인하라고 알리고 주문을 다시 불러온다', async () => {
         server.use(http.post('/api/orders/:token/confirm', () => HttpResponse.error()));
         renderRoute('/orders/held-demo', { loggedIn: true });
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
 
-        expect(await screen.findByText('확정 결과를 확인하지 못했어요. 예매 내역에서 확인해 주세요.', {}, { timeout: 5_000 })).toBeTruthy();
+        expect(await screen.findByText('확정 결과를 확인하지 못했어요. 예매확인에서 확인해 주세요.', {}, { timeout: 5_000 })).toBeTruthy();
         expect(confirmRequests).toBe(3);
         await waitFor(() => expect(disabled(screen.getByRole('button', { name: '예매 확정' }))).toBe(false));
     }, 10_000);
@@ -324,6 +324,6 @@ describe('주문 화면', () => {
         renderRoute('/orders/unknown-token');
 
         expect(await screen.findByRole('heading', { name: '예매를 찾을 수 없어요' })).toBeTruthy();
-        expect(screen.getByRole('link', { name: '예매 내역 보기' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: '예매확인으로' })).toBeTruthy();
     });
 });
