@@ -26,12 +26,12 @@ describe('주문 화면', () => {
         renderRoute('/orders/held-demo', { loggedIn: true });
 
         const ticket = await screen.findByRole('article', { name: '모바일 티켓' });
-        expect(within(ticket).getByText('확정하면 입장번호가 나와요')).toBeTruthy();
+        expect(within(ticket).getByText('예매를 완료하면 입장번호가 나와요')).toBeTruthy();
         expect(within(ticket).getByText('2매')).toBeTruthy();
         expect(within(ticket).queryByText(/\d+ · \d+/)).toBeNull();
-        expect(within(ticket).getByRole('img', { name: '확정 전이라 흐린 입장용 QR' })).toBeTruthy();
+        expect(within(ticket).getByRole('img', { name: '예매 완료 전이라 흐린 입장용 QR' })).toBeTruthy();
         expect(screen.getByRole('timer').textContent).toMatch(/^09:(4[01]|39)$/);
-        expect(queryButton('예매 확정')).toBeTruthy();
+        expect(queryButton('예매 완료하기')).toBeTruthy();
         expect(queryButton('예매 취소')).toBeTruthy();
         expect(queryButton('공유하기')).toBeTruthy();
     });
@@ -39,12 +39,12 @@ describe('주문 화면', () => {
     it('확정하면 확정한 순서대로 받은 입장번호와 선명한 QR, 이미지로 저장·캘린더에 추가·공유하기를 보여 준다', async () => {
         renderRoute('/orders/held-demo', { loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 완료하기' }));
 
         expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' })).toBeTruthy();
         const ticket = screen.getByRole('article', { name: '모바일 티켓' });
         expect(within(ticket).getByText('37 · 38')).toBeTruthy();
-        expect(within(ticket).queryByText('확정하면 입장번호가 나와요')).toBeNull();
+        expect(within(ticket).queryByText('예매를 완료하면 입장번호가 나와요')).toBeNull();
         expect(screen.getByRole('img', { name: '입장용 QR' })).toBeTruthy();
         expect(queryButton('이미지로 저장')).toBeTruthy();
         expect(queryButton('캘린더에 추가')).toBeTruthy();
@@ -64,7 +64,7 @@ describe('주문 화면', () => {
         expect(screen.queryByText(/풀렸어요/)).toBeNull();
         const ticket = screen.getByRole('article', { name: '모바일 티켓' });
         expect(within(ticket).queryByText('입장번호')).toBeNull();
-        expect(within(ticket).queryByText('확정하면 입장번호가 나와요')).toBeNull();
+        expect(within(ticket).queryByText('예매를 완료하면 입장번호가 나와요')).toBeNull();
         expect(screen.getByRole('link', { name: '다시 고르기' }).getAttribute('href')).toBe('/performances/1/showtimes/12/quantity');
     });
 
@@ -109,8 +109,8 @@ describe('주문 화면', () => {
         renderRoute('/orders/held-demo', { loggedIn: true, prepare: holdDemoEndsIn(1_200) });
 
         expect(await screen.findByRole('timer')).toBeTruthy();
-        expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' }, { timeout: 3_000 })).toBeTruthy();
-        expect(screen.getByText('시간 만료')).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '시간이 지나 예매가 취소됐어요' }, { timeout: 3_000 })).toBeTruthy();
+        expect(screen.getByText('자동 취소')).toBeTruthy();
         expect(screen.queryByText(/풀렸어요/)).toBeNull();
         expect(screen.getByRole('link', { name: '다시 고르기' })).toBeTruthy();
     });
@@ -127,7 +127,7 @@ describe('주문 화면', () => {
 
     it('기한 직전에 보낸 확정이 기한 뒤에 응답해도, 그사이 다시 불러온 옛 상태로 확정 결과를 덮지 않는다', async () => {
         renderRoute('/orders/held-demo', { loggedIn: true, prepare: holdDemoEndsIn(700) });
-        const confirm = await screen.findByRole('button', { name: '예매 확정' });
+        const confirm = await screen.findByRole('button', { name: '예매 완료하기' });
         server.use(
             http.get('/api/orders/:token', async ({ params }) => {
                 const db = loadDb();
@@ -156,23 +156,23 @@ describe('주문 화면', () => {
         renderRoute('/orders/held-demo', { scenario: 'clock-skew', loggedIn: true, prepare: holdDemoEndsIn(1_200) });
 
         expect((await screen.findByRole('timer')).textContent).toMatch(/^00:0[012]$/);
-        expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' }, { timeout: 3_000 })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '시간이 지나 예매가 취소됐어요' }, { timeout: 3_000 })).toBeTruthy();
     });
 
     it('기한이 지난 선점 주문은 상태가 HELD여도 기한 지남으로 보여 준다', async () => {
         renderRoute('/orders/held-demo', { loggedIn: true, prepare: holdDemoEndsIn(-1_000) });
 
-        expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' })).toBeTruthy();
-        expect(queryButton('예매 확정')).toBeNull();
+        expect(await screen.findByRole('heading', { name: '시간이 지나 예매가 취소됐어요' })).toBeTruthy();
+        expect(queryButton('예매 완료하기')).toBeNull();
     });
 
     it('화면의 남은 시간이 있어도 서버가 기한 지남으로 거부하면 그 이유를 보여 주고 다시 보내지 않는다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'confirm-expired', loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 완료하기' }));
 
-        expect(await screen.findByText('예매 가능 시간이 지났어요.')).toBeTruthy();
-        expect(await screen.findByRole('heading', { name: '예매 가능 시간이 지났어요' })).toBeTruthy();
+        expect(await screen.findByText('시간이 지나 예매가 자동 취소됐어요.')).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: '시간이 지나 예매가 취소됐어요' })).toBeTruthy();
         await new Promise((resolve) => setTimeout(resolve, 1_200));
         expect(confirmRequests).toBe(1);
     });
@@ -180,7 +180,7 @@ describe('주문 화면', () => {
     it('이미 취소한 주문을 확정하면 이미 취소했다고 알리고 취소 화면을 보여 주며 다시 보내지 않는다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'confirm-cancelled', loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 완료하기' }));
 
         expect(await screen.findByText('이미 취소한 예매예요.')).toBeTruthy();
         expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
@@ -201,13 +201,13 @@ describe('주문 화면', () => {
         );
         const view = renderRoute('/orders/held-demo', { loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 완료하기' }));
         await waitFor(() => expect(isMockLoggedIn()).toBe(false));
         await waitFor(() => expect(confirmRequests).toBe(1));
         const { router } = finishKakaoLogin(view);
         await waitFor(() => expect(router.state.location.pathname).toBe('/orders/held-demo'));
 
-        const again = await screen.findByRole('button', { name: '예매 확정' });
+        const again = await screen.findByRole('button', { name: '예매 완료하기' });
         await waitFor(() => expect(disabled(again)).toBe(false));
         fireEvent.click(again);
 
@@ -224,7 +224,7 @@ describe('주문 화면', () => {
 
         expect(await screen.findByText('요청을 처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.')).toBeTruthy();
         expect(screen.getByRole('timer')).toBeTruthy();
-        expect(queryButton('예매 확정')).toBeTruthy();
+        expect(queryButton('예매 완료하기')).toBeTruthy();
     });
 
     it('이미 확정한 주문을 취소하면 취소할 수 없다고 알리고 확정 때 받은 입장번호와 함께 확정 화면을 보여 준다', async () => {
@@ -241,7 +241,7 @@ describe('주문 화면', () => {
     it('확정 응답을 받지 못하면 버튼을 막고 같은 주문으로 자동으로 다시 보내 확정 결과를 받는다', async () => {
         renderRoute('/orders/held-demo', { scenario: 'confirm-lost-once', loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 완료하기' }));
 
         const resending = await screen.findByRole('button', { name: '결과를 확인하는 중' });
         expect(disabled(resending)).toBe(true);
@@ -253,7 +253,7 @@ describe('주문 화면', () => {
         server.use(http.post('/api/orders/:token/confirm', () => HttpResponse.json({ status: 503 }, { status: 503 }), { once: true }));
         renderRoute('/orders/held-demo', { loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 완료하기' }));
 
         expect(await screen.findByRole('heading', { name: '예매가 완료됐어요' }, { timeout: 3_000 })).toBeTruthy();
         expect(confirmRequests).toBe(2);
@@ -263,11 +263,11 @@ describe('주문 화면', () => {
         server.use(http.post('/api/orders/:token/confirm', () => HttpResponse.error()));
         renderRoute('/orders/held-demo', { loggedIn: true });
 
-        fireEvent.click(await screen.findByRole('button', { name: '예매 확정' }));
+        fireEvent.click(await screen.findByRole('button', { name: '예매 완료하기' }));
 
-        expect(await screen.findByText('확정 결과를 확인하지 못했어요. 예매확인에서 확인해 주세요.', {}, { timeout: 5_000 })).toBeTruthy();
+        expect(await screen.findByText('예매 완료 결과를 확인하지 못했어요. 예매확인에서 확인해 주세요.', {}, { timeout: 5_000 })).toBeTruthy();
         expect(confirmRequests).toBe(3);
-        await waitFor(() => expect(disabled(screen.getByRole('button', { name: '예매 확정' }))).toBe(false));
+        await waitFor(() => expect(disabled(screen.getByRole('button', { name: '예매 완료하기' }))).toBe(false));
     }, 10_000);
 
     it('취소 응답을 받지 못하면 알리고 주문을 다시 불러와 서버에서 취소된 상태를 보여 준다', async () => {
@@ -292,9 +292,9 @@ describe('주문 화면', () => {
         renderRoute('/orders/viewer-demo', { loggedIn: true });
 
         expect(await screen.findByRole('heading', { name: '공유받은 예매예요' })).toBeTruthy();
-        expect(screen.getByText('확정하면 입장번호가 나와요')).toBeTruthy();
+        expect(screen.getByText('예매를 완료하면 입장번호가 나와요')).toBeTruthy();
         expect(screen.getByText('2매')).toBeTruthy();
-        expect(queryButton('예매 확정')).toBeNull();
+        expect(queryButton('예매 완료하기')).toBeNull();
         expect(queryButton('예매 취소')).toBeNull();
         expect(screen.getByRole('link', { name: '이 공연 보러 가기' })).toBeTruthy();
     });
@@ -306,7 +306,7 @@ describe('주문 화면', () => {
         fireEvent.click(await screen.findByRole('button', { name: '카카오 로그인' }));
         finishKakaoLogin(view);
 
-        expect(await screen.findByRole('button', { name: '예매 확정' })).toBeTruthy();
+        expect(await screen.findByRole('button', { name: '예매 완료하기' })).toBeTruthy();
     });
 
     it('공유 창이 없는 브라우저에서는 주문 링크를 복사한다', async () => {

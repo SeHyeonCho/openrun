@@ -60,7 +60,7 @@ describe('공연 페이지', () => {
 
     it('예매 안내의 확정 시간은 회차의 선점 유지 시간으로 보여 주고, 회차마다 다르면 다르다고 알린다', async () => {
         const { unmount } = renderRoute('/performances/1');
-        expect(await screen.findByText('매수를 고른 뒤 10분 안에 예매를 확정하지 않으면 표가 다시 풀려요.')).toBeTruthy();
+        expect(await screen.findByText('매수를 고른 뒤 10분 안에 예매를 완료하지 않으면 자동 취소돼요.')).toBeTruthy();
         unmount();
 
         renderRoute('/performances/1', {
@@ -68,8 +68,8 @@ describe('공연 페이지', () => {
                 db.showtimes.find((s) => s.id === 14)!.holdMinutes = 5;
             },
         });
-        expect(await screen.findByText('예매를 확정할 수 있는 시간은 회차마다 달라요. 매수를 고를 때 알려 드려요.')).toBeTruthy();
-        expect(screen.queryByText(/분 안에 예매를 확정하지 않으면/)).toBeNull();
+        expect(await screen.findByText('예매를 완료할 수 있는 시간은 회차마다 달라요. 매수를 고를 때 알려 드려요.')).toBeTruthy();
+        expect(screen.queryByText(/분 안에 예매를 완료하지 않으면/)).toBeNull();
     });
 
     it('로그인하지 않고 예매하기를 누르면 카카오 로그인으로 이동하고, 로그인 뒤 수량 선택으로 돌아온다', async () => {

@@ -75,7 +75,7 @@ describe('수량 선택', () => {
             },
         });
 
-        expect(await screen.findByText('선택을 완료한 뒤 5분 안에 예매를 확정해 주세요.')).toBeTruthy();
+        expect(await screen.findByText('선택한 뒤 5분 안에 예매를 완료해 주세요.')).toBeTruthy();
     });
 
     it('예매자 이름은 카카오 닉네임으로 채워 두고, 비우면 선점할 수 없다', async () => {
