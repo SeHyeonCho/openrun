@@ -57,7 +57,7 @@ describe('주문 화면', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: '예매 취소' }));
         const sheet = screen.getByRole('dialog', { name: '예매를 취소할까요?' });
-        expect(within(sheet).getByText('고른 2매가 바로 다른 사람에게 풀려요.')).toBeTruthy();
+        expect(within(sheet).getByText('선택한 2매가 바로 다른 사람에게 풀려요.')).toBeTruthy();
         fireEvent.click(within(sheet).getByRole('button', { name: '예매 취소' }));
 
         expect(await screen.findByRole('heading', { name: '예매를 취소했어요' })).toBeTruthy();
@@ -296,7 +296,7 @@ describe('주문 화면', () => {
         expect(screen.getByText('2매')).toBeTruthy();
         expect(queryButton('예매 완료하기')).toBeNull();
         expect(queryButton('예매 취소')).toBeNull();
-        expect(screen.getByRole('link', { name: '이 공연 보러 가기' })).toBeTruthy();
+        expect(screen.getByRole('link', { name: '공연 페이지로' })).toBeTruthy();
     });
 
     it('로그인하지 않고 내 주문 링크를 열면 내용만 보여 주고, 로그인하면 확정할 수 있다', async () => {

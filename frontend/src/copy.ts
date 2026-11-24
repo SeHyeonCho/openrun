@@ -99,7 +99,7 @@ export const copy = {
         },
         soldOut: {
             title: '매진됐어요',
-            body: '잔여석이 0이 됐어요. 다른 사람이 고른 표가 시간 안에 완료되지 않아 자동 취소되면 다시 예매할 수 있어요.',
+            body: '다른 사람이 선택한 티켓이 시간 안에 완료되지 않아 자동 취소되면 다시 예매할 수 있어요.',
             caption: '공연 페이지에서 다른 회차의 잔여석을 볼 수 있어요.',
             cta: '다른 회차 보기',
         },
@@ -121,14 +121,14 @@ export const copy = {
         resending: '결과를 확인하는 중',
         unknown: {
             title: '예매 결과를 확인하지 못했어요',
-            body: '연결이 고르지 않아 표가 잡혔는지 알 수 없어요. 예매확인에서 확인해 주세요.',
+            body: '연결이 고르지 않아 티켓이 잡혔는지 알 수 없어요. 예매확인에서 확인해 주세요.',
             toMyOrders: '예매확인에서 확인',
             retry: '다시 시도',
             note: '다시 시도해도 같은 요청으로 보내서 예매는 하나만 생겨요.',
         },
         pastResendLimit: {
             title: '예매 결과를 여기서 확인할 수 없어요',
-            body: '예매를 시작한 지 오래돼 같은 요청을 다시 보낼 수 없어요. 표가 잡혔는지 예매확인에서 확인해 주세요.',
+            body: '예매를 시작한 지 오래돼 같은 요청을 다시 보낼 수 없어요. 티켓이 잡혔는지 예매확인에서 확인해 주세요.',
             toMyOrders: '예매확인에서 확인',
         },
         otherBuyerPending: {
@@ -176,7 +176,7 @@ export const copy = {
         },
         cancelSheet: {
             title: '예매를 취소할까요?',
-            body: (count: number) => `고른 ${count}매가 바로 다른 사람에게 풀려요.`,
+            body: (count: number) => `선택한 ${count}매가 바로 다른 사람에게 풀려요.`,
             caption: (count: number) => `취소한 ${count}매만큼 다시 예매할 수 있어요.`,
             confirm: '예매 취소',
             cancelling: '취소하는 중',
@@ -204,7 +204,7 @@ export const copy = {
             ownerLogin: '내 예매라면 로그인해 주세요.',
             remaining: '남은 시간',
             qrNote: '예매한 사람이 예매를 완료하면 QR이 선명해져요.',
-            toShow: '이 공연 보러 가기',
+            toShow: '공연 페이지로',
         },
         notFound: {
             title: '예매를 찾을 수 없어요',
@@ -246,7 +246,7 @@ export const copy = {
             title: '로그인하면 예매한 공연을 볼 수 있어요',
             body: '예매할 때 쓴 카카오 계정으로 로그인하면, 링크를 잃어버린 예매도 여기서 다시 찾아요.',
             linkTitle: '예매 링크를 받았나요?',
-            linkBody: '예매 링크는 로그인하지 않아도 열려요. 받은 링크를 누르면 표와 QR을 볼 수 있어요.',
+            linkBody: '예매 링크는 로그인하지 않아도 열려요. 받은 링크를 누르면 티켓과 QR을 볼 수 있어요.',
         },
     },
 };
