@@ -9,11 +9,6 @@ spring:
     hibernate:
       ddl-auto: validate
 
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-
 logging:
   level:
     root: INFO
