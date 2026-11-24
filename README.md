@@ -1,8 +1,13 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/openrun-wordmark-white.svg">
+  <img src="docs/images/openrun-wordmark-black.svg" alt="OpenRun" width="320">
+</picture>
+
 # 🎟️ OpenRun
 
-> 소규모 공연의 선착순 판매에서 입금 대기부터 환불·입장까지 좌석 정합성을 지키는 예매 엔진.
+> 소규모 공연을 위한 선착순 좌석 예매 서비스. 좌석 선점부터 입금 확인, 입장까지.
 
-선착순 예매의 동시성 문제를 락 전략별로 직접 구현하고, 같은 조건의 부하 테스트 수치로 비교해 보려고 시작한 프로젝트다.
+OpenRun이 지키려는 것은 입금 대기부터 환불까지 좌석과 돈의 상태가 어긋나지 않는 것이다. 같은 좌석을 두 사람에게 팔지 않는 것(초과 판매 0건)이 그 첫 근거다. 판매 오픈 직후 요청이 몰리는 상황은 일부 인기 공연에서 생기는 일로 보고, 아래 목표 수치의 스트레스 부하로 어디까지 버티는지 재서 기록한다. 락 전략 비교도 이 기준 안에서 한다. 어느 전략이든 초과 판매가 없어야 비교 대상에 올린다.
 
 ## 🎯 대상 고객
 
@@ -15,7 +20,21 @@
 - 입금 확인, 환불, 입장 확인의 상태가 끊기지 않고 이어져야 한다
 - 결제 같은 느린 외부 I/O가 처리 흐름 중간에 들어온다
 - 일부 인기 공연에서는 오픈 시점에 동시 요청이 몰린다
-- 서버가 여러 대인 분산 환경
+- 서버가 여러 대여도 같은 규칙이 지켜져야 한다
+
+## ✅ 지금 되는 것
+
+기본 예약 흐름(P0, v0.1.0)까지 만들었다. 결제는 결제 단계(P2)에서 들어와서, 지금은 구매자가 확정 버튼을 직접 누른다.
+
+- 공연 페이지에서 회차별 판매 상태와 남은 수를 로그인 없이 본다
+- 카카오 계정으로 로그인하고, 자유석은 수량만 골라 선점한다. 지정석 회차는 보이지만 좌석 선택은 운영 단계(P3)에서 만든다
+- 선점한 좌석은 회차마다 정한 시간 동안 잡아 두고, 그 안에 확정하거나 취소한다. 기한이 지난 좌석은 정리 작업을 기다리지 않고 바로 다시 판다
+- 자유석 입장번호는 확정할 때 회차 순번대로 받는다
+- 응답을 받지 못한 화면이 같은 선점 요청을 다시 보내도 주문은 하나만 생긴다
+- 판매 시작 전과 판매 마감 뒤의 선점은 거부한다
+- 주문 링크로 주문 화면과 QR을 열고, 예매확인에서 내 주문을 모아 본다
+
+근거는 동시성 테스트다. 여러 구매자가 같은 좌석이나 남은 자유석을 동시에 선점할 때, 취소나 기한 만료와 다른 구매자의 선점이 겹칠 때, 판매 마감 직전에 자유석 선점이 몰릴 때 모두 한 좌석은 한 주문에만 잡혔다(초과 판매 0건). 같은 구매자가 동시에 선점해도 1인 최대 좌석 수를 넘지 않았고, 같은 선점 요청이 동시에 와도 주문은 하나만 생겼다. 처리량과 응답 시간은 아직 재지 않았고, 전략 비교 단계(P1)에서 아래 목표 수치로 부하 테스트를 해서 적는다.
 
 ## 📏 목표 수치
 
@@ -33,9 +52,11 @@
 
 ## 🛠 기술 스택
 
-- Java 21, Spring Boot 4
-- MySQL 8
-- Gradle, Docker Compose
+- 서버: Java 21, Spring Boot 4.1, Spring Data JPA, Spring Security(카카오 로그인)
+- DB: MySQL 8.4, Flyway
+- 구매자 화면: TypeScript, React, Vite, React Query. 서버 없이도 MSW 목 API로 띄운다
+- 테스트: JUnit, Testcontainers(MySQL), Vitest
+- 빌드와 로컬 인프라: Gradle, Docker Compose
 
 ## 🚀 로컬 실행
 
@@ -47,21 +68,39 @@ cp .env.example .env
 # 2. 인프라(MySQL) 띄우기
 docker compose up -d
 
-# 3. IDE에서 애플리케이션 실행
+# 3. 애플리케이션 실행 (IDE에서 실행해도 된다)
+./gradlew bootRun --args='--spring.profiles.active=local'
+
+# 4. 구매자 화면 실행 (다른 터미널에서)
+cd frontend
+npm ci
+VITE_API_MOCK=false npm run dev   # http://localhost:5173, 위 서버에 붙는다
 ```
 - `.env`는 필수다. 없으면 앱이 시작 단계에서 실패한다.
 - 카카오 앱 키는 Kakao Developers에서 앱을 만들고 카카오 로그인을 켠 뒤 받는다. 동의 항목은 닉네임만 쓰고, Redirect URI에 `http://localhost:8080/login/oauth2/code/kakao`를 등록한다. 구매자 화면 개발 서버(`frontend/`)를 거쳐 로그인하려면 `http://localhost:5173/login/oauth2/code/kakao`도 등록한다. 키가 비어 있으면 앱이 시작 단계에서 실패한다.
-- 실행 프로필 지정: IDE 실행 구성의 Active profiles에 `local`을 지정해야 한다. (또는 VM 옵션 `-Dspring.profiles.active=local`)
-- DB는 Docker로 띄우고, 애플리케이션은 IDE에서 직접 실행한다.
+- IDE에서 실행하려면 실행 구성의 Active profiles에 `local`을 지정한다. (또는 VM 옵션 `-Dspring.profiles.active=local`) 로컬 프로필은 판매 기간 안의 회차가 하나도 없으면 시작할 때 샘플 공연과 회차를 만든다.
+- DB는 Docker로 띄우고, 애플리케이션은 Docker 밖에서 실행한다.
+- 구매자 화면은 `npm run dev`만 쓰면 서버 없이 목 API로 뜬다. Node 버전과 목 API 시나리오는 [frontend/README.md](frontend/README.md)에 있다.
+- 테스트: `./gradlew test`는 Testcontainers로 MySQL을 띄우므로 Docker만 켜져 있으면 되고 `.env`는 필요 없다. 화면 테스트는 `frontend/`에서 `npm test`.
 - 종료: `docker compose down`
 - Git 훅 활성화: 클론한 뒤 `git config core.hooksPath .githooks`를 한 번 실행한다. 커밋 메시지 형식과 브랜치 이름을 검사한다.
 
+## 📚 문서
+
+- [제품 요구사항](docs/product/prd.md): 누구를 위해 무엇을 만드는지, 기능이 어느 단계에 들어가는지
+- [좌석 예매 흐름 기능 명세](docs/spec/booking-flow.md): 선점, 확정, 취소, 만료, 판매 기간 규칙
+- [좌석 예매 API 명세](docs/spec/booking-api.md): 구매자 화면과 서버 사이의 계약
+- 결정 기록(ADR): 고른 방식과 이유, 버린 대안을 함께 적는다
+  - [0001. 구매자 로그인 방식](docs/adr/0001-구매자-로그인-방식.md)
+  - [0002. 자유석 재고와 입장번호 배정](docs/adr/0002-자유석-재고와-입장번호-배정.md)
+  - [0003. 잠금 순서와 판단 시각](docs/adr/0003-잠금-순서와-판단-시각.md)
+
 ## 🗺 로드맵
 
-- [ ] P0 · 🎟️ 기본 예약 플로우
+- [x] P0 · 🎟️ 기본 예약 플로우
 - [ ] P1 · 🧪 전략 비교 + 부하 테스트
 - [ ] P2 · 💳 결제 흐름
-- [ ] P3 · 🚪 주최자 운영 + 입장 + 배포
+- [ ] P3 · 🚪 주최자 운영 + 입장
 - [ ] P4 · ⏳ 가상 대기열
 - [ ] P5 · 🛡️ 공정성 + 장애 대응
 - [ ] P6 · 📈 스케일아웃
