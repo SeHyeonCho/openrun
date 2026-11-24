@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/openrun-wordmark-white.svg">
+  <img src="docs/images/openrun-wordmark-black.svg" alt="OpenRun" width="320">
+</picture>
+
 # 🎟️ OpenRun
 
 > 소규모 공연의 선착순 판매에서 입금 대기부터 환불·입장까지 좌석 정합성을 지키는 예매 엔진.
