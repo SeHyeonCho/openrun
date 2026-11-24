@@ -25,7 +25,7 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
 2. 커밋되지 않은 변경이 있으면 멈추고 알린다.
 3. 커밋 목록을 점검한다. 커밋 형식이 틀렸거나 이슈와 무관한 변경이 섞여 있으면 PR 전에 알린다. 히스토리 재작성은 승인을 받은 뒤에만 한다.
 4. 빌드와 테스트를 이전 결과를 재사용하지 않고 실행한다: `./gradlew build --rerun-tasks`
-   - `frontend/`를 바꿨으면 서버 빌드 전에 `cd frontend && npm ci && npm test && npm run build`를 실행한다. 실패하면 PR을 열지 않고 원인을 보고한다
+   - `frontend/`를 바꿨으면 서버 빌드 전에 `(cd frontend && npm ci && npm test && npm run build)`를 서브셸로 실행해 저장소 루트에서 서버 빌드를 이어 간다. 실패하면 PR을 열지 않고 원인을 보고한다
    - Docker가 꺼져 있어 Testcontainers가 실패하면 Docker를 먼저 켜자고 제안한다
    - 그 외 이유로 실패하면 PR을 열지 않고 원인을 보고한다
 5. 문서만 바꿨어도 앱이 뜨는지 확인한다.
@@ -45,7 +45,7 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *) Bash(gh issue
    - `✨ 변경 사항`: `git diff main...HEAD`를 기준으로 무엇이 바뀌었는지 요약한다. 커밋 목록을 그대로 옮기지 않는다
    - `🧪 테스트 증명`: 4·5번에서 실제로 실행한 명령과 결과만 적는다. 빌드 출력 블록 다음은 CLAUDE.md의 순서를 따른다(CI 링크 → 테스트 수와 이번에 추가한 것 → 테스트별 상세 → `bootRun` 같은 수동 확인 → 출력에서 다듬은 부분). 테스트 수는 `build/test-results/test/*.xml`에서 센다. CI 링크는 PR을 연 뒤 빌드가 끝나면 넣는다
      - 빌드 출력 블록은 `$ ./gradlew build --rerun-tasks` 다음에 `> Task :compileJava`, `:bootJar`, `:compileTestJava`, `:test`, `:build` 다섯 줄과 `BUILD SUCCESSFUL in Ns`, `N actionable tasks: N executed`를 둔다. 줄이지 않는다
-     - `frontend/`를 바꾼 PR은 같은 블록에서 서버 빌드 앞에 `$ cd frontend && npm ci && npm test && npm run build`의 테스트 수와 빌드 결과를 둔다
+     - `frontend/`를 바꾼 PR은 같은 블록에서 서버 빌드 앞에 `$ (cd frontend && npm ci && npm test && npm run build)`의 테스트 수와 빌드 결과를 둔다
    - `⚡ 성능 · 동시성`: 락·트랜잭션·공유 자원 변경이 없으면 섹션을 삭제한다. 있으면 실제로 확인한 항목만 체크하고, 측정하지 않은 수치 칸은 비워 둔다
      - 제목에 "(해당 시)"를 남기지 않는다. 체크 세 개 다음에 지표 표를 두고, 처리량·p99 칸은 측정하기 전까지 비운다. 초과 판매는 동시성 테스트가 실제로 0을 확인했을 때만 `0 | 0`으로 적고, 표 아래에 "처리량과 지연은 P1에서 k6로 측정한다. 초과 판매 0은 동시성 테스트 결과다."를 둔다. 0이 아니면 초과 판매가 일어난 것이라 PR을 열지 않고 원인을 보고한다
    - 본문을 줄여 달라는 요청은 상세 목록과 결정 개수 같은 내용을 줄이라는 뜻이다. 빌드 블록, 테스트 증명 순서, 성능 표 같은 고정된 모양은 그대로 둔다
