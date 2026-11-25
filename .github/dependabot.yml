@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    open-pull-requests-limit: 1
+    labels:
+      - '🔧 Chore'
+    assignees:
+      - SeHyeonCho
+    commit-message:
+      prefix: chore
