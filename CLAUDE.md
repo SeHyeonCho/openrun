@@ -22,7 +22,7 @@
 
 ## GitHub Flow
 
-모든 작업은 이슈에서 시작한다. 순서는 이슈 → 브랜치 → 커밋 → PR → CodeRabbit 리뷰 반영 → Squash Merge다.
+모든 작업은 이슈에서 시작한다. 순서는 이슈 → 브랜치 → 커밋 → PR → CodeRabbit 리뷰 반영 → Squash Merge다. Dependabot이 여는 의존성 갱신 PR만 이슈 없이 시작한다(아래 "의존성 갱신 PR").
 반복 작업은 스킬로 처리한다: `/new-issue`, `/start-issue <번호>`, `/open-pr`, `/review-fix`.
 
 ### 역할
@@ -80,6 +80,13 @@ type은 아래 여섯 개만 쓴다. 이슈 제목, 브랜치, 커밋, PR 제목
   - PR 본문을 고친 직후에는 PR 제목 검사가 다시 돌므로 끝날 때까지 기다린다
   - 머지 후 `main` 푸시의 `build`가 통과하는지 확인한다
   - 로컬 브랜치는 내용이 `main`의 머지 커밋과 같은지 확인한 뒤 지운다. Squash Merge라 `git branch -D`로 지운다
+
+### 의존성 갱신 PR
+
+- GitHub Actions 버전은 Dependabot이 매달 확인하고, 바뀐 액션을 PR 하나로 묶어 연다(`.github/dependabot.yml`). 라벨(🔧 Chore)과 담당자는 설정이 붙인다
+- Dependabot PR 제목은 영어라 `conventional-title` 검사를 통과하지 못한다. 머지 전에 제목을 `chore: GitHub Actions 버전 갱신 (<바뀐 액션 요약>)`처럼 한국어로 고치고, 진행 중인 마일스톤을 단다
+- 바뀐 액션의 릴리스 노트에서 깨지는 변경을 확인하고, `build`가 통과하면 사용자 승인을 받아 Squash Merge한다. 부하 측정으로 전후를 비교하는 동안에는 머지를 미룰 수 있다
+- 리뷰 스레드가 생기면 다른 PR처럼 `/review-fix`로 처리한다
 
 ### GitHub에 쓰는 글
 
