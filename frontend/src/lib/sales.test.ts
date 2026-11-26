@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ShowtimeSummary } from '../api/types';
-import { effectiveSalesStatus } from './sales';
+import { effectiveSalesStatus, purchasableCount } from './sales';
 
 const showtime = (overrides: Partial<ShowtimeSummary>): ShowtimeSummary => ({
     id: 1,
@@ -38,5 +38,18 @@ describe('회차 판매 상태', () => {
 
         expect(effectiveSalesStatus(showtime({ salesStatus: 'SOLD_OUT' }), now)).toBe('SOLD_OUT');
         expect(effectiveSalesStatus(showtime({ salesStatus: 'SALES_CLOSED' }), now)).toBe('SALES_CLOSED');
+    });
+});
+
+describe('살 수 있는 수', () => {
+    it('남은 수와 1인 최대에서 이미 가진 수를 뺀 값 중 작은 쪽이다', () => {
+        expect(purchasableCount({ remaining: 1, maxSeatsPerBuyer: 4, ownedCount: 0 })).toBe(1);
+        expect(purchasableCount({ remaining: 10, maxSeatsPerBuyer: 4, ownedCount: 1 })).toBe(3);
+    });
+
+    it('이미 1인 최대만큼 가졌거나 남은 좌석이 없으면 0이고 음수가 되지 않는다', () => {
+        expect(purchasableCount({ remaining: 10, maxSeatsPerBuyer: 4, ownedCount: 4 })).toBe(0);
+        expect(purchasableCount({ remaining: 10, maxSeatsPerBuyer: 4, ownedCount: 5 })).toBe(0);
+        expect(purchasableCount({ remaining: 0, maxSeatsPerBuyer: 4, ownedCount: 0 })).toBe(0);
     });
 });

@@ -3,7 +3,7 @@ import { toPng } from 'html-to-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router';
 import { isApiError, isNotFound, isUnauthorized, isUnknownResult, NoResponseError, RESEND_DELAYS_MS } from '../api/client';
-import { api, queryKeys, useMe, useOrder } from '../api/queries';
+import { api, invalidateOrderViews, queryKeys, useMe, useOrder } from '../api/queries';
 import type { OrderResponse } from '../api/types';
 import { useLogin } from '../auth/useLogin';
 import { ActionGrid, icons } from '../components/ActionGrid';
@@ -88,9 +88,7 @@ function OrderDetail({ order, refetch }: { order: OrderResponse; refetch: () => 
     const applyOrder = (next: OrderResponse) => {
         void queryClient.cancelQueries({ queryKey: queryKeys.order(next.token) });
         queryClient.setQueryData(queryKeys.order(next.token), next);
-        void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.availability(next.showtime.id) });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(next.performance.id)) });
+        invalidateOrderViews(queryClient, { showtimeId: next.showtime.id, performanceId: next.performance.id });
     };
 
     const handleFailure = async (error: unknown) => {
