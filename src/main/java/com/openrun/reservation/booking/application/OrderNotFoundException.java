@@ -1,13 +1,11 @@
 package com.openrun.reservation.booking.application;
 
+import com.openrun.reservation.common.web.ApiProblemException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.web.ErrorResponseException;
 
-public class OrderNotFoundException extends ErrorResponseException {
+public class OrderNotFoundException extends ApiProblemException {
 
     public OrderNotFoundException() {
-        super(HttpStatus.NOT_FOUND, ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다."),
-                null);
+        super(HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다.");
     }
 }

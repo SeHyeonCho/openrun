@@ -1,13 +1,13 @@
 package com.openrun.reservation.booking.application;
 
+import com.openrun.reservation.common.web.ApiProblemException;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.web.ErrorResponseException;
 
 @Getter
-public class SeatHoldRejectedException extends ErrorResponseException {
+public class SeatHoldRejectedException extends ApiProblemException {
 
     private final SeatHoldRejection rejection;
     private final List<Long> seatIds;
@@ -17,17 +17,9 @@ public class SeatHoldRejectedException extends ErrorResponseException {
     }
 
     public SeatHoldRejectedException(SeatHoldRejection rejection, String detail, List<Long> seatIds) {
-        super(HttpStatus.CONFLICT, problemDetail(rejection, detail, seatIds), null);
+        super(HttpStatus.CONFLICT, rejection.name(), detail,
+                seatIds.isEmpty() ? Map.of() : Map.of("seatIds", List.copyOf(seatIds)));
         this.rejection = rejection;
         this.seatIds = List.copyOf(seatIds);
-    }
-
-    private static ProblemDetail problemDetail(SeatHoldRejection rejection, String detail, List<Long> seatIds) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, detail);
-        problemDetail.setProperty("code", rejection.name());
-        if (!seatIds.isEmpty()) {
-            problemDetail.setProperty("seatIds", seatIds);
-        }
-        return problemDetail;
     }
 }

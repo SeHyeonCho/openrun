@@ -15,6 +15,7 @@ import com.openrun.reservation.booking.domain.SeatRepository;
 import com.openrun.reservation.booking.domain.Showtime;
 import com.openrun.reservation.booking.domain.ShowtimeBuyerLock;
 import com.openrun.reservation.booking.domain.ShowtimeRepository;
+import com.openrun.reservation.common.web.ApiProblemException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
@@ -24,12 +25,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.ErrorResponseException;
 
 @Service
 @RequiredArgsConstructor
@@ -63,7 +61,7 @@ public class OrderService {
         Showtime showtime = showtimeRepository.findById(request.showtimeId())
                 .orElseThrow(() -> new ShowtimeNotFoundException(request.showtimeId()));
         if (showtime.isGeneralAdmission() != request.choosesQuantity()) {
-            throw badRequest(showtime.isGeneralAdmission()
+            throw ApiProblemException.badRequest(showtime.isGeneralAdmission()
                     ? "자유석 회차는 좌석 대신 수량(quantity)으로 선점합니다."
                     : "지정석 회차는 수량 대신 좌석(seatIds)으로 선점합니다.");
         }
@@ -211,10 +209,10 @@ public class OrderService {
     private void rejectInvalidSeatChoice(CreateOrderRequest request) {
         List<Long> seatIds = request.seatIds();
         if ((seatIds == null) == (request.quantity() == null)) {
-            throw badRequest("좌석(seatIds)과 수량(quantity) 가운데 하나만 보내야 합니다.");
+            throw ApiProblemException.badRequest("좌석(seatIds)과 수량(quantity) 가운데 하나만 보내야 합니다.");
         }
         if (seatIds != null && (seatIds.isEmpty() || new HashSet<>(seatIds).size() != seatIds.size())) {
-            throw badRequest("좌석 목록이 비었거나 같은 좌석이 두 번 있습니다.");
+            throw ApiProblemException.badRequest("좌석 목록이 비었거나 같은 좌석이 두 번 있습니다.");
         }
     }
 
@@ -222,11 +220,6 @@ public class OrderService {
         if (seats.size() < quantity) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_NOT_AVAILABLE, "남은 좌석이 요청한 수량보다 적습니다.");
         }
-    }
-
-    private ErrorResponseException badRequest(String detail) {
-        return new ErrorResponseException(HttpStatus.BAD_REQUEST,
-                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail), null);
     }
 
     private void rejectSeatsOutsideShowtime(Showtime showtime, List<Long> seatIds, List<Seat> seats) {
