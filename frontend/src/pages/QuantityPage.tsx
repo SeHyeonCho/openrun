@@ -26,7 +26,7 @@ import {
     saveHoldRequest,
     type StoredHoldRequest,
 } from '../lib/holdRequestStore';
-import { effectiveSalesStatus } from '../lib/sales';
+import { effectiveSalesStatus, purchasableCount } from '../lib/sales';
 import { useServerNow } from '../lib/useServerNow';
 import styles from './QuantityPage.module.css';
 
@@ -176,7 +176,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
     }, [stored]);
 
     const { remaining, maxSeatsPerBuyer: max, ownedCount: owned } = availability;
-    const limit = Math.max(0, Math.min(remaining, max - owned));
+    const limit = purchasableCount(availability);
     const chosen = Math.min(Math.max(quantity, 1), Math.max(limit, 1));
     const status = effectiveSalesStatus({ ...showtime, salesStatus: availability.salesStatus, remaining }, now);
     const nameOk = buyerName.trim() !== '';
@@ -187,7 +187,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
             queryFn: () => api.getAvailability(showtime.id),
             staleTime: 0,
         });
-        const freshLimit = Math.max(0, Math.min(fresh.remaining, fresh.maxSeatsPerBuyer - fresh.ownedCount));
+        const freshLimit = purchasableCount(fresh);
         if (freshLimit < chosen) {
             setAdjustedFrom(freshLimit > 0 ? chosen : null);
             setQuantity(Math.max(1, freshLimit));
