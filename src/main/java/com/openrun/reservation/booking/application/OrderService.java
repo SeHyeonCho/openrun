@@ -6,34 +6,28 @@ import com.openrun.reservation.booking.domain.HoldRequestRepository;
 import com.openrun.reservation.booking.domain.Order;
 import com.openrun.reservation.booking.domain.OrderEntryNumber;
 import com.openrun.reservation.booking.domain.OrderEntryNumberRepository;
-import com.openrun.reservation.booking.domain.OrderEntryNumberView;
 import com.openrun.reservation.booking.domain.OrderOwner;
 import com.openrun.reservation.booking.domain.OrderRepository;
 import com.openrun.reservation.booking.domain.OrderSeat;
-import com.openrun.reservation.booking.domain.OrderSeatCount;
 import com.openrun.reservation.booking.domain.OrderSeatRepository;
 import com.openrun.reservation.booking.domain.Seat;
 import com.openrun.reservation.booking.domain.SeatRepository;
 import com.openrun.reservation.booking.domain.Showtime;
 import com.openrun.reservation.booking.domain.ShowtimeBuyerLock;
 import com.openrun.reservation.booking.domain.ShowtimeRepository;
+import com.openrun.reservation.common.web.ApiProblemException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.ErrorResponseException;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +41,7 @@ public class OrderService {
     private final OrderEntryNumberRepository orderEntryNumberRepository;
     private final EntrySequence entrySequence;
     private final HoldRequestRepository holdRequestRepository;
+    private final OrderQueryService orderQueryService;
     private final Clock clock;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -66,7 +61,7 @@ public class OrderService {
         Showtime showtime = showtimeRepository.findById(request.showtimeId())
                 .orElseThrow(() -> new ShowtimeNotFoundException(request.showtimeId()));
         if (showtime.isGeneralAdmission() != request.choosesQuantity()) {
-            throw badRequest(showtime.isGeneralAdmission()
+            throw ApiProblemException.badRequest(showtime.isGeneralAdmission()
                     ? "자유석 회차는 좌석 대신 수량(quantity)으로 선점합니다."
                     : "지정석 회차는 수량 대신 좌석(seatIds)으로 선점합니다.");
         }
@@ -103,7 +98,7 @@ public class OrderService {
                     recorded.rejectedSeatIds()));
         }
         Order order = orderRepository.findWithShowtimeById(recorded.getOrderId()).orElseThrow(OrderNotFoundException::new);
-        return HoldOutcome.accepted(orderResponse(order, buyerId, now));
+        return HoldOutcome.accepted(orderQueryService.responseOf(order, buyerId, now));
     }
 
     private Order holdSeats(Long buyerId, Showtime showtime, CreateOrderRequest request, Instant now) {
@@ -142,38 +137,6 @@ public class OrderService {
         if (showtime.isSalesClosedAt(at)) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SALES_CLOSED, "판매가 끝났습니다.");
         }
-    }
-
-    private OrderResponse orderResponse(Order order, Long viewerBuyerId, Instant now) {
-        int quantity = Math.toIntExact(orderSeatRepository.countByOrderId(order.getId()));
-        return OrderResponse.of(order, quantity, orderEntryNumberRepository.findEntryNumbersByOrderId(order.getId()),
-                viewerBuyerId, now);
-    }
-
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public OrderResponse find(String token, Long viewerBuyerId) {
-        Instant now = clock.instant();
-        Order order = orderRepository.findWithShowtimeByToken(token).orElseThrow(OrderNotFoundException::new);
-        return orderResponse(order, viewerBuyerId, now);
-    }
-
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public MyOrdersResponse findMyOrders(Long buyerId) {
-        Instant now = clock.instant();
-        List<Order> orders = orderRepository.findAllWithShowtimeByBuyerId(buyerId);
-        if (orders.isEmpty()) {
-            return new MyOrdersResponse(List.of(), now);
-        }
-        List<Long> orderIds = orders.stream().map(Order::getId).toList();
-        Map<Long, Long> seatCounts = orderSeatRepository.countByOrderIds(orderIds).stream()
-                .collect(Collectors.toMap(OrderSeatCount::orderId, OrderSeatCount::seatCount));
-        Map<Long, List<Integer>> entryNumbers = orderEntryNumberRepository.findEntryNumbersByOrderIds(orderIds).stream()
-                .collect(Collectors.groupingBy(OrderEntryNumberView::orderId,
-                        Collectors.mapping(OrderEntryNumberView::entryNumber, Collectors.toList())));
-        return new MyOrdersResponse(orders.stream()
-                .map(order -> MyOrdersResponse.MyOrder.of(order, Math.toIntExact(seatCounts.get(order.getId())),
-                        entryNumbers.getOrDefault(order.getId(), List.of()), now))
-                .toList(), now);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -246,10 +209,10 @@ public class OrderService {
     private void rejectInvalidSeatChoice(CreateOrderRequest request) {
         List<Long> seatIds = request.seatIds();
         if ((seatIds == null) == (request.quantity() == null)) {
-            throw badRequest("좌석(seatIds)과 수량(quantity) 가운데 하나만 보내야 합니다.");
+            throw ApiProblemException.badRequest("좌석(seatIds)과 수량(quantity) 가운데 하나만 보내야 합니다.");
         }
         if (seatIds != null && (seatIds.isEmpty() || new HashSet<>(seatIds).size() != seatIds.size())) {
-            throw badRequest("좌석 목록이 비었거나 같은 좌석이 두 번 있습니다.");
+            throw ApiProblemException.badRequest("좌석 목록이 비었거나 같은 좌석이 두 번 있습니다.");
         }
     }
 
@@ -257,11 +220,6 @@ public class OrderService {
         if (seats.size() < quantity) {
             throw new SeatHoldRejectedException(SeatHoldRejection.SEAT_NOT_AVAILABLE, "남은 좌석이 요청한 수량보다 적습니다.");
         }
-    }
-
-    private ErrorResponseException badRequest(String detail) {
-        return new ErrorResponseException(HttpStatus.BAD_REQUEST,
-                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail), null);
     }
 
     private void rejectSeatsOutsideShowtime(Showtime showtime, List<Long> seatIds, List<Seat> seats) {

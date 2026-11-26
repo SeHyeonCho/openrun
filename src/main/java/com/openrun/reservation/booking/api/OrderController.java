@@ -2,19 +2,19 @@ package com.openrun.reservation.booking.api;
 
 import com.openrun.reservation.booking.application.CreateOrderRequest;
 import com.openrun.reservation.booking.application.HoldService;
+import com.openrun.reservation.booking.application.OrderQueryService;
 import com.openrun.reservation.booking.application.OrderResponse;
 import com.openrun.reservation.booking.application.OrderService;
 import com.openrun.reservation.booking.application.SeatHoldRejectedException;
 import com.openrun.reservation.booking.application.SeatHoldRejection;
 import com.openrun.reservation.buyer.application.LoginBuyer;
+import com.openrun.reservation.common.web.ApiProblemException;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,6 +35,7 @@ public class OrderController {
             Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     private final OrderService orderService;
+    private final OrderQueryService orderQueryService;
     private final HoldService holdService;
 
     @PostMapping
@@ -53,7 +54,7 @@ public class OrderController {
 
     @GetMapping("/{token}")
     public OrderResponse find(@AuthenticationPrincipal LoginBuyer buyer, @PathVariable String token) {
-        return orderService.find(token, buyer == null ? null : buyer.id());
+        return orderQueryService.find(token, buyer == null ? null : buyer.id());
     }
 
     @PostMapping("/{token}/confirm")
@@ -68,8 +69,7 @@ public class OrderController {
 
     private UUID parseIdempotencyKey(String value) {
         if (!UUID_PATTERN.matcher(value).matches()) {
-            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, ProblemDetail.forStatusAndDetail(
-                    HttpStatus.BAD_REQUEST, IDEMPOTENCY_KEY + " 헤더는 UUID 문자열이어야 합니다."), null);
+            throw ApiProblemException.badRequest(IDEMPOTENCY_KEY + " 헤더는 UUID 문자열이어야 합니다.");
         }
         return UUID.fromString(value);
     }
