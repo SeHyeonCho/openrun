@@ -2,6 +2,7 @@ package com.openrun.reservation.booking.api;
 
 import com.openrun.reservation.booking.application.CreateOrderRequest;
 import com.openrun.reservation.booking.application.HoldService;
+import com.openrun.reservation.booking.application.OrderQueryService;
 import com.openrun.reservation.booking.application.OrderResponse;
 import com.openrun.reservation.booking.application.OrderService;
 import com.openrun.reservation.booking.application.SeatHoldRejectedException;
@@ -35,6 +36,7 @@ public class OrderController {
             Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     private final OrderService orderService;
+    private final OrderQueryService orderQueryService;
     private final HoldService holdService;
 
     @PostMapping
@@ -53,7 +55,7 @@ public class OrderController {
 
     @GetMapping("/{token}")
     public OrderResponse find(@AuthenticationPrincipal LoginBuyer buyer, @PathVariable String token) {
-        return orderService.find(token, buyer == null ? null : buyer.id());
+        return orderQueryService.find(token, buyer == null ? null : buyer.id());
     }
 
     @PostMapping("/{token}/confirm")
