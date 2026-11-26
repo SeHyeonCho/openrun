@@ -31,9 +31,10 @@ const record = ({ request }: { request: Request }) => {
 server.events.on('request:start', record);
 const holdKeys = () => sent.filter((r) => r.method === 'POST' && r.path === '/api/orders').map((r) => r.key);
 
-function respondInOrder(...responses: (() => Response)[]) {
+function respondInOrder(first: () => Response, ...rest: (() => Response)[]) {
+    const responses = [first, ...rest];
     let call = 0;
-    server.use(http.post('/api/orders', () => responses[Math.min(call++, responses.length - 1)]()));
+    server.use(http.post('/api/orders', () => (responses[Math.min(call++, responses.length - 1)] ?? first)()));
 }
 
 function renderHold() {
