@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError, isApiError, isForbidden, isNotFound, isUnauthorized, isUnknownResult, RESEND_DELAYS_MS } from '../api/client';
-import { api, newIdempotencyKey, queryKeys, useAvailability, useMe, usePerformance } from '../api/queries';
+import { api, invalidateOrderViews, newIdempotencyKey, queryKeys, useAvailability, useMe, usePerformance } from '../api/queries';
 import type { AvailabilityResponse, MeResponse, PerformanceResponse, ShowtimeSummary } from '../api/types';
 import { useLogin } from '../auth/useLogin';
 import { BottomBar } from '../components/BottomBar';
@@ -217,9 +217,7 @@ function QuantityForm({ header, performance, showtime, me, availability }: FormP
             const order = await api.createOrder(request.body, request.key, request.buyerId);
             pending.current = null;
             queryClient.setQueryData(queryKeys.order(order.token), order);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtime.id) });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(performance.id)) });
+            invalidateOrderViews(queryClient, { showtimeId: showtime.id, performanceId: performance.id });
             if (!unmounted.current) {
                 removeHoldRequest(request);
                 navigate(`/orders/${order.token}`);

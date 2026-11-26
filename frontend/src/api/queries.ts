@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { isUnauthorized, request } from './client';
 import type {
     AvailabilityResponse,
@@ -22,6 +22,12 @@ export const queryKeys = {
     order: (token: string) => ['order', token] as const,
     myOrders: ['me', 'orders'] as const,
 };
+
+export function invalidateOrderViews(queryClient: QueryClient, { showtimeId, performanceId }: { showtimeId: number; performanceId: number }) {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.availability(showtimeId) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.performance(String(performanceId)) });
+}
 
 export const api = {
     getMe: () => request<MeResponse>('/me'),
